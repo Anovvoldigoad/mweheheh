@@ -77,6 +77,42 @@ namespace NSC_ModManager
             }
 
             InitializeComponent();
+
+            // Global exception handlers - tanpa ini, unhandled exception di Wine/
+            // Winlator bisa bikin proses mati senyap tanpa jejak sama sekali.
+            // Sekarang minimal tercatat ke crash_log.txt di folder aplikasi.
+            AppDomain.CurrentDomain.UnhandledException += (s, e) =>
+                LogAndShowCrash(e.ExceptionObject as Exception, "AppDomain.UnhandledException");
+            this.DispatcherUnhandledException += (s, e) =>
+            {
+                LogAndShowCrash(e.Exception, "DispatcherUnhandledException");
+                e.Handled = true; // jangan biarkan WPF ikut menjatuhkan proses kalau masih bisa diselamatkan
+            };
+            System.Threading.Tasks.TaskScheduler.UnobservedTaskException += (s, e) =>
+            {
+                LogAndShowCrash(e.Exception, "UnobservedTaskException");
+                e.SetObserved();
+            };
+        }
+
+        private static void LogAndShowCrash(Exception ex, string source)
+        {
+            try
+            {
+                string logPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "crash_log.txt");
+                File.AppendAllText(logPath,
+                    $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] {source}\n{ex}\n\n");
+            }
+            catch { /* kalau nulis log pun gagal, jangan sampai handler ini ikut crash */ }
+
+            try
+            {
+                System.Windows.MessageBox.Show(
+                    "Terjadi error tak terduga:\n" + (ex?.Message ?? "(unknown)") +
+                    "\n\nDetail tersimpan di crash_log.txt",
+                    "NSC-ModManager - Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+            catch { }
         }
 
         private static bool IsDllPresent(string dllName)

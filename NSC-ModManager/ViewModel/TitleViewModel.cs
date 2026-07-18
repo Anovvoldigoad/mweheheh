@@ -1186,26 +1186,54 @@ namespace NSC_ModManager.ViewModel
         }
         private async System.Threading.Tasks.Task CheckGitHubNewerVersion()
         {
-            //Get all releases from GitHub
-            //Source: https://octokitnet.readthedocs.io/en/latest/getting-started/
-            GitHubClient client = new GitHubClient(new Octokit.ProductHeaderValue("NSC-ModManager"));
-            IReadOnlyList<Release> releases = await client.Repository.Release.GetAll("TheLeonX", "NSC-ModManager");
+            // Winlator/Wine sering punya stack TLS/HTTPS (SChannel) yang rapuh -
+            // panggilan network di sini bisa memicu crash native yang lolos dari
+            // try-catch managed biasa. Kasih jalan keluar eksplisit + timeout +
+            // bungkus rapat supaya kalaupun gagal, cuma fitur cek update yang
+            // tidak jalan, bukan seluruh aplikasi ikut mati.
+            if (Environment.GetEnvironmentVariable("NSC_MM_SKIP_UPDATE_CHECK") == "1")
+                return;
 
-            //Setup the versions
-            //Source: https://learn.microsoft.com/en-us/archive/msdn-technet-forums/7fe34424-0a53-46cb-b4b3-ab63b0823d01
-            Version latestGitHubVersion = new Version(releases[0].TagName);
-            System.Reflection.Assembly assembly = System.Reflection.Assembly.GetExecutingAssembly();
-            Version localVersion = assembly.GetName().Version;
-
-            //Compare the Versions
-            //Source: https://stackoverflow.com/questions/7568147/compare-version-numbers-without-using-split-function
-            int versionComparison = localVersion.CompareTo(latestGitHubVersion);
-            if (versionComparison < 0)
+            try
             {
-                SystemSounds.Beep.Play();
-                System.Windows.MessageBox.Show("There is new version of Mod Manager on GitHub page.");
-            }
+                //Get all releases from GitHub
+                //Source: https://octokitnet.readthedocs.io/en/latest/getting-started/
+                GitHubClient client = new GitHubClient(new Octokit.ProductHeaderValue("NSC-ModManager"));
+                using var cts = new System.Threading.CancellationTokenSource(TimeSpan.FromSeconds(8));
+                var getReleasesTask = client.Repository.Release.GetAll("TheLeonX", "NSC-ModManager");
+                var completedTask = await System.Threading.Tasks.Task.WhenAny(
+                    getReleasesTask,
+                    System.Threading.Tasks.Task.Delay(TimeSpan.FromSeconds(8), cts.Token));
+                if (completedTask != getReleasesTask)
+                {
+                    Debug.WriteLine("CheckGitHubNewerVersion: timed out, skipping.");
+                    return;
+                }
+                cts.Cancel();
+                IReadOnlyList<Release> releases = await getReleasesTask;
+                if (releases == null || releases.Count == 0) return;
 
+                //Setup the versions
+                //Source: https://learn.microsoft.com/en-us/archive/msdn-technet-forums/7fe34424-0a53-46cb-b4b3-ab63b0823d01
+                Version latestGitHubVersion = new Version(releases[0].TagName);
+                System.Reflection.Assembly assembly = System.Reflection.Assembly.GetExecutingAssembly();
+                Version localVersion = assembly.GetName().Version;
+
+                //Compare the Versions
+                //Source: https://stackoverflow.com/questions/7568147/compare-version-numbers-without-using-split-function
+                int versionComparison = localVersion.CompareTo(latestGitHubVersion);
+                if (versionComparison < 0)
+                {
+                    SystemSounds.Beep.Play();
+                    System.Windows.MessageBox.Show("There is new version of Mod Manager on GitHub page.");
+                }
+            }
+            catch (Exception ex)
+            {
+                // Gagal cek update (offline, TLS bermasalah, dll) - jangan sampai
+                // menjatuhkan seluruh aplikasi hanya karena ini.
+                Debug.WriteLine("CheckGitHubNewerVersion failed: " + ex);
+            }
         }
         public void RefreshModList()
         {
