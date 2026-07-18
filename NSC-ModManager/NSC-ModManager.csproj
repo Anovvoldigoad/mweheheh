@@ -187,8 +187,14 @@
     </Content>
   </ItemGroup>
   <ItemGroup>
-    <!-- Source XFBIN_LIB sudah tersedia (../XFBIN_LIB), build dari source
-         langsung supaya versinya selalu sinkron, bukan dari .dll prebuilt lagi. -->
-    <ProjectReference Include="..\XFBIN_LIB\XFBIN_LIB.csproj" />
+    <!-- PENTING: XFBIN_LIB-main.zip yang di-upload adalah versi source YANG BERBEDA
+         dari yang dipakai membangun app ini - method FindChunks/FoundChunk/
+         RepackXfbinData/ChangeChunkNameAndPath yang dipanggil NUS3BANKViewModel.cs
+         tidak ada di source itu. Sampai ada source yang sinkron, pakai .dll
+         prebuilt (Libs\XFBIN_LIB.dll) yang sudah terbukti lengkap API-nya. -->
+    <Reference Include="XFBIN_LIB">
+      <HintPath>Libs\XFBIN_LIB.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
   </ItemGroup>
 </Project>
