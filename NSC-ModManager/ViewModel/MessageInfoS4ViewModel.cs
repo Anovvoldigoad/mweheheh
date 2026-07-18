@@ -18,6 +18,7 @@ using Microsoft.Win32;
 using NSC_ModManager.Model;
 using NSC_ModManager.Properties;
 using NSC_ModManager;
+using NSC_ModManager.ViewModel;
 using BinaryReader = NSC_ModManager.BinaryReader;
 
 namespace NSC_Toolbox.ViewModel
