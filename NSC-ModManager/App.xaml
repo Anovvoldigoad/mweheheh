@@ -1,0 +1,27 @@
+﻿<Application x:Class="NSC_ModManager.App"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:local="clr-namespace:NSC_ModManager"
+             xmlns:xctk="http://schemas.xceed.com/wpf/xaml/toolkit"  
+             xmlns:xcdg="http://schemas.xceed.com/wpf/xaml/datagrid"
+             StartupUri="View/TitleView.xaml"  Startup="App_Startup">
+    <Application.Resources>
+        <ResourceDictionary>
+            <!-- Font kustom "CC2 RocknRoll Latin DB" (embedded Storm4_rus.ttf) diganti Arial -
+                 dijamin ada di Winlator tanpa perlu embed font file custom. -->
+            <FontFamily x:Key="NarutoFont">Arial</FontFamily>
+
+            <ResourceDictionary.MergedDictionaries>
+                <!-- ModernWpf (ui:ThemeResources / ui:XamlControlsResources) sudah dilepas.
+                     Fluent/Mica composition theme itu yang paling sering bikin WPF app
+                     black-screen atau crash di Winlator. Diganti WinlatorStyle.xaml,
+                     style flat berbasis Border/Trigger biasa. -->
+                <ResourceDictionary Source="Resources/Styles/WinlatorStyle.xaml" />
+                <ResourceDictionary Source="Resources/Styles/LightStyle.xaml" />
+                <ResourceDictionary Source="Resources/Localization/lang.xaml" />
+                <!-- Other merged dictionaries here -->
+            </ResourceDictionary.MergedDictionaries>
+            <!-- Other app resources here -->
+        </ResourceDictionary>
+    </Application.Resources>
+</Application>
