@@ -76,6 +76,13 @@ namespace NSC_ModManager
                 RenderOptions.ProcessRenderMode = RenderMode.SoftwareOnly;
             }
 
+            // Lapis pengaman kedua (selain Setter di WinlatorStyle.xaml) untuk
+            // masalah UriFormatException di font-cache pipeline "Ideal"/DirectWrite -
+            // paksa semua Window baru pakai pipeline "Display" (GDI-compatible) sejak
+            // sebelum window manapun sempat dibuat/ditampilkan.
+            TextOptions.TextFormattingModeProperty.OverrideMetadata(
+                typeof(Window), new FrameworkPropertyMetadata(TextFormattingMode.Display));
+
             InitializeComponent();
 
             // Global exception handlers - tanpa ini, unhandled exception di Wine/

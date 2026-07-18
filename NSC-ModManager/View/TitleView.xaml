@@ -72,7 +72,13 @@
             </Setter>
         </Style>
 
-        <Style TargetType="ToggleButton" BasedOn="{StaticResource NoChromeButton}"/>
+        <!-- Style implisit ToggleButton BasedOn=NoChromeButton (TargetType=Button) DIHAPUS:
+             Button bukan base type dari ToggleButton (keduanya sama-sama turunan
+             ButtonBase, saudara bukan induk-anak), jadi ini invalid dan akan selalu
+             menyebabkan InvalidOperationException begitu ada elemen ToggleButton
+             sungguhan di window ini. Sebelumnya "aman" cuma karena app ini belum
+             pernah punya ToggleButton asli (ui:ToggleSwitch versi ModernWpf bukan
+             turunan ToggleButton). -->
         <Storyboard x:Key="ToS4">
             <DoubleAnimation Storyboard.TargetName="ModManagerGrid"
                      Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleX)"

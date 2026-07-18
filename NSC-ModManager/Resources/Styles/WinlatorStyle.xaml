@@ -42,6 +42,18 @@
         <Setter Property="Foreground" Value="{StaticResource Win_TextBrush}"/>
         <!-- WindowChrome kustom sengaja TIDAK dipakai: caption bar bawaan Windows
              lebih stabil di Wine/Winlator dibanding custom titlebar transparan. -->
+
+        <!-- PENTING: alihkan text rendering ke pipeline "Display" (GDI-compatible,
+             lama) alih-alih "Ideal" (default WPF modern, berbasis DirectWrite).
+             UriFormatException di MS.Internal.FontCache.Util.CombineUriWithFaceIndex
+             terjadi persis di jalur glyph-cache milik pipeline "Ideal" - dan itu
+             terjadi baik pakai font custom maupun font sistem (Arial), artinya
+             bukan soal font-nya, tapi dukungan DirectWrite di Wine yang belum utuh.
+             TextOptions ini attached property ter-inherit, jadi cukup diset sekali
+             di Window dan otomatis berlaku ke semua TextBlock/Label/DataGrid di
+             bawahnya. -->
+        <Setter Property="TextOptions.TextFormattingMode" Value="Display"/>
+        <Setter Property="TextOptions.TextRenderingMode" Value="Aliased"/>
     </Style>
 
     <!-- ===================== BUTTON (flat, no shadow/blur) ===================== -->
@@ -116,6 +128,7 @@
                          Microsoft.Windows.Themes.ComboBoxChrome native. -->
                     <Grid>
                         <ToggleButton x:Name="ToggleBtn"
+                                      Style="{x:Null}"
                                       Background="{TemplateBinding Background}"
                                       BorderBrush="{TemplateBinding BorderBrush}"
                                       BorderThickness="{TemplateBinding BorderThickness}"
