@@ -8,14 +8,19 @@
     <Application.Resources>
         <ResourceDictionary>
             <!-- Font kustom "CC2 RocknRoll Latin DB" di Resources/Fonts/Storm4_rus.ttf.
-                 Percobaan pertama pakai relative path "Resources/Fonts/#..." gagal di
-                 Winlator (UriFormatException). Ganti sementara ke "Arial" (font sistem)
-                 juga TETAP gagal - artinya font-enumeration sistem Wine/WinNative sendiri
-                 yang bermasalah, bukan cuma font custom-nya. Solusi paling robust: pakai
-                 pack URI PENUH menunjuk langsung ke file font yang sudah ter-bundle di
-                 exe (build action "Resource") - ini dibaca langsung dari resource stream
-                 assembly, sama sekali tidak menyentuh font store / enumerasi OS Wine. -->
-            <FontFamily x:Key="NarutoFont">pack://application:,,,/Resources/Fonts/Storm4_rus.ttf#CC2 RocknRoll Latin DB</FontFamily>
+                 Riwayat percobaan:
+                 1) "Resources/Fonts/#..." relatif -> UriFormatException di Winlator.
+                 2) Ganti ke font sistem "Arial" -> TETAP UriFormatException (jadi
+                    bukan soal font custom vs sistem).
+                 3) "pack://application:,,,/Resources/Fonts/Storm4_rus.ttf#..." (pack URI
+                    + nama file eksplisit) -> TETAP gagal. Ternyata syntax ini SALAH:
+                    aturan WPF untuk font resource, bagian sebelum # harus FOLDER, bukan
+                    nama file - menyertakan nama file bikin WPF gagal mem-parse-nya
+                    sebagai referensi resource lalu diam-diam fallback ke pencarian
+                    font SISTEM (match persis dgn PhysicalFontFamily di stack trace crash).
+                 4) FIX: pack URI ke FOLDER saja (tanpa nama file), sesuai dokumentasi
+                    resmi WPF. -->
+            <FontFamily x:Key="NarutoFont">pack://application:,,,/Resources/Fonts/#CC2 RocknRoll Latin DB</FontFamily>
 
             <ResourceDictionary.MergedDictionaries>
                 <!-- ModernWpf (ui:ThemeResources / ui:XamlControlsResources) sudah dilepas.

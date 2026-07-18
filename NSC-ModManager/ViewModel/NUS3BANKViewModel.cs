@@ -1352,10 +1352,9 @@ namespace NSC_ModManager.ViewModel
                 }
                 if (basepath == "")
                 {
-                    var dialog = new CommonOpenFileDialog();
-                    dialog.IsFolderPicker = true;
-                    dialog.ShowDialog();
-                    basepath = dialog.FileName;
+                    if (!DialogHelper.TrySelectFolder("Select output folder", out string selectedPath))
+                        return;
+                    basepath = selectedPath;
                 }
                 for (int i = 0; i < ToneList.Count; i++)
                 {
@@ -1398,10 +1397,9 @@ namespace NSC_ModManager.ViewModel
                 }
                 if (basepath == "")
                 {
-                    var dialog = new CommonOpenFileDialog();
-                    dialog.IsFolderPicker = true;
-                    dialog.ShowDialog();
-                    basepath = dialog.FileName;
+                    if (!DialogHelper.TrySelectFolder("Select output folder", out string selectedPath))
+                        return;
+                    basepath = selectedPath;
                 }
 
                 string vgmstreamExe = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "vgmstream", "vgmstream-cli.exe");

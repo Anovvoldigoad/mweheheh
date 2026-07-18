@@ -7,6 +7,10 @@
     <AssemblyName>NSC_ModManager</AssemblyName>
     <Nullable>enable</Nullable>
     <UseWPF>true</UseWPF>
+    <!-- Dibutuhkan untuk fallback System.Windows.Forms.FolderBrowserDialog -
+         CommonOpenFileDialog (WindowsAPICodePack, gaya Vista/IFileDialog COM)
+         kadang tidak stabil di Wine/Winlator. -->
+    <UseWindowsForms>true</UseWindowsForms>
     <ApplicationIcon>white_MM.ico</ApplicationIcon>
 
     <Install>true</Install>

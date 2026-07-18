@@ -391,15 +391,11 @@ namespace NSC_Toolbox.ViewModel
         public void OpenFiles(string basepath = "") {
             try {
                 if (basepath == "") {
-                    var dialog = new CommonOpenFileDialog();
-                    dialog.IsFolderPicker = true;
-                    CommonFileDialogResult result = dialog.ShowDialog();
-                    if (result == CommonFileDialogResult.Ok)
-                        filePath = dialog.FileName;
-                    else {
+                    if (!DialogHelper.TrySelectFolder("Select folder", out string selectedPath)) {
                         LoadingStatePlay = Visibility.Hidden;
                         return;
                     }
+                    filePath = selectedPath;
                 } else
                     filePath = basepath;
                 if (Directory.Exists(filePath)) {
@@ -678,11 +674,9 @@ namespace NSC_Toolbox.ViewModel
         public void SaveFileAs(string basepath = "") {
             try {
                 if (basepath == "") {
-                    var dialog = new CommonOpenFileDialog();
-                    dialog.IsFolderPicker = true;
-                    dialog.Title = "Select data_win32 folder or folder where will be placed messageInfo folder";
-                    dialog.ShowDialog();
-                    basepath = dialog.FileName;
+                    if (!DialogHelper.TrySelectFolder("Select data_win32 folder or folder where will be placed messageInfo folder", out string selectedPath))
+                        return;
+                    basepath = selectedPath;
                 }
                 for (int i = 0; i < 12; i++) {
                     string path = basepath + "\\message\\WIN64\\" + Program.langS4List[i];

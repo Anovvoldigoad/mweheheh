@@ -944,6 +944,13 @@ namespace NSC_ModManager.ViewModel
             SelectedYearLabel = year.ToString();
         }
 
+        /// <summary>
+        /// Lihat NSC_ModManager.ViewModel.DialogHelper.TrySelectFolder untuk detail
+        /// kenapa ini perlu fallback dari CommonOpenFileDialog ke FolderBrowserDialog.
+        /// </summary>
+        private static bool TrySelectFolder(string title, out string selectedPath)
+            => DialogHelper.TrySelectFolder(title, out selectedPath);
+
         public TitleViewModel()
         {
             // Upgrade settings if necessary.
@@ -8527,62 +8534,41 @@ namespace NSC_ModManager.ViewModel
         }
         public void SelectModManagerFolder()
         {
-            var dialog = new CommonOpenFileDialog();
-            dialog.IsFolderPicker = true;
-            dialog.Title = "Select folder where mods will be installed";
-            CommonFileDialogResult result = dialog.ShowDialog();
-            if (result == CommonFileDialogResult.Ok)
-            {
-                Properties.Settings.Default.ModManagerFolder = dialog.FileName;
-                ModManagerFolder_field = dialog.FileName;
-                Properties.Settings.Default.Save();
-            } else
-            {
+            if (!TrySelectFolder("Select folder where mods will be installed", out string selectedPath))
                 return;
-            }
+
+            Properties.Settings.Default.ModManagerFolder = selectedPath;
+            ModManagerFolder_field = selectedPath;
+            Properties.Settings.Default.Save();
         }
         public void SelectRootFolder()
         {
-            var dialog = new CommonOpenFileDialog();
-            dialog.IsFolderPicker = true;
-            dialog.Title = "Select root folder of Storm Connections";
-            CommonFileDialogResult result = dialog.ShowDialog();
-            if (result == CommonFileDialogResult.Ok)
-            {
-                if (!File.Exists(Path.Combine(dialog.FileName, "NSUNSC.exe")))
-                {
-                    System.Windows.MessageBox.Show("Executable file doesn't exist. Selected wrong folder for Naruto Storm Connections.");
-                    return;
-                }
+            if (!TrySelectFolder("Select root folder of Storm Connections", out string selectedPath))
+                return;
 
-                Properties.Settings.Default.RootGameNSCFolder = dialog.FileName;
-                RootFolderPath_field = dialog.FileName;
-                Properties.Settings.Default.Save();
-            } else
+            if (!File.Exists(Path.Combine(selectedPath, "NSUNSC.exe")))
             {
+                System.Windows.MessageBox.Show("Executable file doesn't exist. Selected wrong folder for Naruto Storm Connections.");
                 return;
             }
+
+            Properties.Settings.Default.RootGameNSCFolder = selectedPath;
+            RootFolderPath_field = selectedPath;
+            Properties.Settings.Default.Save();
         }
         public void SelectRootFolderNS4()
         {
-            var dialog = new CommonOpenFileDialog();
-            dialog.IsFolderPicker = true;
-            dialog.Title = "Select root folder of Storm 4";
-            CommonFileDialogResult result = dialog.ShowDialog();
-            if (result == CommonFileDialogResult.Ok)
+            if (!TrySelectFolder("Select root folder of Storm 4", out string selectedPath))
+                return;
+
+            if (!File.Exists(Path.Combine(selectedPath, "NSUNS4.exe")))
             {
-                if (!File.Exists(Path.Combine(dialog.FileName, "NSUNS4.exe")))
-                {
-                    System.Windows.MessageBox.Show("Executable file doesn't exist. Selected wrong folder for Naruto Storm 4.");
-                    return;
-                }
-                Properties.Settings.Default.RootGameNS4Folder = dialog.FileName;
-                RootFolderPathNS4_field = dialog.FileName;
-                Properties.Settings.Default.Save();
-            } else
-            {
+                System.Windows.MessageBox.Show("Executable file doesn't exist. Selected wrong folder for Naruto Storm 4.");
                 return;
             }
+            Properties.Settings.Default.RootGameNS4Folder = selectedPath;
+            RootFolderPathNS4_field = selectedPath;
+            Properties.Settings.Default.Save();
         }
 
         public void InstallModdingAPI(bool showMessage = true, string root_path = "")
@@ -8591,17 +8577,8 @@ namespace NSC_ModManager.ViewModel
             {
                 if (string.IsNullOrEmpty(root_path))
                 {
-                    var dialog = new CommonOpenFileDialog
-                    {
-                        IsFolderPicker = true,
-                        Title = "Select root folder of game"
-                    };
-
-                    CommonFileDialogResult result = dialog.ShowDialog();
-                    if (result != CommonFileDialogResult.Ok)
+                    if (!TrySelectFolder("Select root folder of game", out root_path))
                         return;
-
-                    root_path = dialog.FileName;
                 }
 
                 if (!Directory.Exists(root_path))

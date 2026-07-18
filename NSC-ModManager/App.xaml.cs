@@ -105,8 +105,33 @@ namespace NSC_ModManager
         private static readonly HashSet<string> _shownCrashSignatures = new HashSet<string>();
         private static readonly object _crashLock = new object();
 
+        private static bool _fontFallbackApplied = false;
+
         private static void LogAndShowCrash(Exception ex, string source)
         {
+            // Self-healing khusus: kalau ini exception font-cache (CombineUriWithFaceIndex),
+            // ganti resource NarutoFont ke fallback aman dan JANGAN tampilkan popup error -
+            // supaya app langsung pulih dan lanjut jalan normal, bukan macet berulang di
+            // layout pass yang sama terus-menerus.
+            if (!_fontFallbackApplied && ex is UriFormatException &&
+                ex.StackTrace != null && ex.StackTrace.Contains("CombineUriWithFaceIndex"))
+            {
+                _fontFallbackApplied = true;
+                try
+                {
+                    var fallback = new FontFamily("Segoe UI, Tahoma, Verdana, Arial");
+                    if (System.Windows.Application.Current?.Resources.Contains("NarutoFont") == true)
+                        System.Windows.Application.Current.Resources["NarutoFont"] = fallback;
+
+                    File.AppendAllText(
+                        Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "crash_log.txt"),
+                        $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] Font resolution gagal (lihat error di bawah), " +
+                        $"otomatis fallback ke font sistem generik dan lanjut jalan.\n{ex}\n\n");
+                }
+                catch { }
+                return; // jangan tampilkan popup, biarkan app lanjut normal
+            }
+
             string signature = source + "|" + (ex?.GetType().FullName ?? "?") + "|" + (ex?.TargetSite?.Name ?? "?");
             bool alreadyShown;
             lock (_crashLock)
