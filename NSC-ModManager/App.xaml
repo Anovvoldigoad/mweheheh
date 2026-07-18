@@ -7,9 +7,15 @@
              StartupUri="View/TitleView.xaml"  Startup="App_Startup">
     <Application.Resources>
         <ResourceDictionary>
-            <!-- Font kustom "CC2 RocknRoll Latin DB" (embedded Storm4_rus.ttf) diganti Arial -
-                 dijamin ada di Winlator tanpa perlu embed font file custom. -->
-            <FontFamily x:Key="NarutoFont">Arial</FontFamily>
+            <!-- Font kustom "CC2 RocknRoll Latin DB" di Resources/Fonts/Storm4_rus.ttf.
+                 Percobaan pertama pakai relative path "Resources/Fonts/#..." gagal di
+                 Winlator (UriFormatException). Ganti sementara ke "Arial" (font sistem)
+                 juga TETAP gagal - artinya font-enumeration sistem Wine/WinNative sendiri
+                 yang bermasalah, bukan cuma font custom-nya. Solusi paling robust: pakai
+                 pack URI PENUH menunjuk langsung ke file font yang sudah ter-bundle di
+                 exe (build action "Resource") - ini dibaca langsung dari resource stream
+                 assembly, sama sekali tidak menyentuh font store / enumerasi OS Wine. -->
+            <FontFamily x:Key="NarutoFont">pack://application:,,,/Resources/Fonts/Storm4_rus.ttf#CC2 RocknRoll Latin DB</FontFamily>
 
             <ResourceDictionary.MergedDictionaries>
                 <!-- ModernWpf (ui:ThemeResources / ui:XamlControlsResources) sudah dilepas.

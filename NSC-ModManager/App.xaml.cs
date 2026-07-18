@@ -95,21 +95,37 @@ namespace NSC_ModManager
             };
         }
 
+        private static readonly HashSet<string> _shownCrashSignatures = new HashSet<string>();
+        private static readonly object _crashLock = new object();
+
         private static void LogAndShowCrash(Exception ex, string source)
         {
+            string signature = source + "|" + (ex?.GetType().FullName ?? "?") + "|" + (ex?.TargetSite?.Name ?? "?");
+            bool alreadyShown;
+            lock (_crashLock)
+            {
+                alreadyShown = !_shownCrashSignatures.Add(signature);
+            }
+
             try
             {
                 string logPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "crash_log.txt");
-                File.AppendAllText(logPath,
-                    $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] {source}\n{ex}\n\n");
+                // Error yang sama berulang cuma dicatat ringkas setelah kemunculan pertama,
+                // supaya file log tidak membengkak jadi ribuan baris identik seperti sebelumnya.
+                string entry = alreadyShown
+                    ? $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] {source} (repeat, same as before): {ex?.GetType().Name}: {ex?.Message}\n"
+                    : $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] {source}\n{ex}\n\n";
+                File.AppendAllText(logPath, entry);
             }
             catch { /* kalau nulis log pun gagal, jangan sampai handler ini ikut crash */ }
+
+            if (alreadyShown) return; // sudah pernah ditampilkan - jangan spam popup lagi
 
             try
             {
                 System.Windows.MessageBox.Show(
                     "Terjadi error tak terduga:\n" + (ex?.Message ?? "(unknown)") +
-                    "\n\nDetail tersimpan di crash_log.txt",
+                    "\n\nDetail tersimpan di crash_log.txt\n\n(Pesan ini hanya muncul sekali per jenis error; error yang sama berikutnya akan langsung dicatat ke log tanpa popup.)",
                     "NSC-ModManager - Error", MessageBoxButton.OK, MessageBoxImage.Error);
             }
             catch { }
