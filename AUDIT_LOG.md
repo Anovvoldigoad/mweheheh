@@ -183,6 +183,41 @@ benar-benar tuntas**. Ini yang paling perlu ditest duluan di sesi berikutnya.
   jejak rename project lama (`NSC_Toolbox` → `NSC_ModManager`) belum
   konsisten di semua file.
 
+## 6c. Font bug: kesimpulan akhir (⚠️ PENTING kalau lanjut sesi berikutnya)
+
+Setelah **5 percobaan FontFamily berbeda** (relative path asli, hardcode
+"Arial", pack URI+nama file, pack URI folder-only sesuai dokumentasi resmi,
+lalu self-heal ke daftar font sistem "Segoe UI, Tahoma, Verdana, Arial") —
+**SEMUANYA crash identik** (`UriFormatException` di
+`MS.Internal.FontCache.Util.CombineUriWithFaceIndex`, dipanggil dari
+`MS.Internal.FontFace.PhysicalFontFamily.GetGlyphTypeface`), berulang di
+HAMPIR SETIAP render pass (± tiap detik).
+
+**Kesimpulan:** ini BUKAN soal font mana yang diminta (custom vs sistem,
+syntax URI benar vs salah) — ini kemungkinan besar **bug di subsistem
+resolusi font FISIK WPF sendiri di bawah WinNative/Wine** (kemungkinan
+terkait DirectWrite/font-enumeration Wine yang belum lengkap). Tidak ada
+lagi kombinasi string `FontFamily` yang masuk akal untuk dicoba — semua
+jalur PhysicalFontFamily sama-sama rusak.
+
+**Keputusan strategi (berubah dari sebelumnya):** stop coba nebak nama font
+yang "benar". Self-healing di `App.xaml.cs` sekarang **PERMANEN** (bukan
+cuma sekali) — exception ini SELALU ditangani diam-diam setiap kali muncul
+(swap ke `SystemFonts.MessageFontFamily`, TANPA popup, log cuma 3 kejadian
+pertama biar tidak membengkak). Prioritas digeser dari "font terlihat
+sempurna" ke **"app tidak boleh macet/crash-loop"**.
+
+**Kalau mau benar-benar menuntaskan (bukan cuma redam gejalanya):** ini
+kemungkinan besar perlu diperbaiki dari sisi **WinNative/Wine**, bukan kode
+C#. Yang bisa dicoba di luar app ini:
+- Cek apakah WinNative punya opsi/patch terkait font (mirip
+  `winetricks corefonts` di Wine biasa) untuk container yang dipakai.
+- Laporkan ke proyek WinNative-Emu/WinNative sebagai bug report, sertakan
+  stack trace `CombineUriWithFaceIndex` di atas — mungkin sudah ada yang
+  pernah lapor hal serupa atau ada workaround khusus di level Wine prefix.
+- **JANGAN** habiskan waktu lagi coba-coba ganti string `FontFamily` di kode
+  app ini — sudah terbukti tidak ada bedanya.
+
 ## 7. Audit tambahan (belum tentu ada di crash log, ditemukan lewat code review)
 
 - **7× `CommonOpenFileDialog`** (folder picker gaya Vista, `Microsoft.WindowsAPICodePack.Dialogs`,

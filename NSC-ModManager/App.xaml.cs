@@ -105,31 +105,42 @@ namespace NSC_ModManager
         private static readonly HashSet<string> _shownCrashSignatures = new HashSet<string>();
         private static readonly object _crashLock = new object();
 
-        private static bool _fontFallbackApplied = false;
+        private static int _fontFallbackLogCount = 0;
 
         private static void LogAndShowCrash(Exception ex, string source)
         {
-            // Self-healing khusus: kalau ini exception font-cache (CombineUriWithFaceIndex),
-            // ganti resource NarutoFont ke fallback aman dan JANGAN tampilkan popup error -
-            // supaya app langsung pulih dan lanjut jalan normal, bukan macet berulang di
-            // layout pass yang sama terus-menerus.
-            if (!_fontFallbackApplied && ex is UriFormatException &&
+            // Self-healing PERMANEN untuk exception font-cache (CombineUriWithFaceIndex).
+            // Sudah dicoba banyak FontFamily berbeda (custom embedded, "Arial",
+            // "Segoe UI/Tahoma/Verdana/Arial") - semuanya crash identik, berulang
+            // tiap render pass. Ini bukti kuat ini bug di subsistem font Wine/
+            // WinNative itu sendiri, BUKAN soal font mana yang diminta. Daripada
+            // terus coba tebak nama font yang "benar", exception ini sekarang
+            // ditangani DIAM-DIAM SETIAP KALI muncul (bukan cuma sekali) - supaya
+            // app tetap jalan stabil walau elemen teks tertentu mungkin re-layout
+            // atau tampil pakai font fallback WPF bawaan. Prioritas: app tidak
+            // macet/crash-loop, bukan font terlihat sempurna.
+            if (ex is UriFormatException &&
                 ex.StackTrace != null && ex.StackTrace.Contains("CombineUriWithFaceIndex"))
             {
-                _fontFallbackApplied = true;
+                _fontFallbackLogCount++;
                 try
                 {
-                    var fallback = new FontFamily("Segoe UI, Tahoma, Verdana, Arial");
-                    if (System.Windows.Application.Current?.Resources.Contains("NarutoFont") == true)
-                        System.Windows.Application.Current.Resources["NarutoFont"] = fallback;
+                    if (Application.Current?.Resources.Contains("NarutoFont") == true)
+                        Application.Current.Resources["NarutoFont"] = SystemFonts.MessageFontFamily;
 
-                    File.AppendAllText(
-                        Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "crash_log.txt"),
-                        $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] Font resolution gagal (lihat error di bawah), " +
-                        $"otomatis fallback ke font sistem generik dan lanjut jalan.\n{ex}\n\n");
+                    // Cuma catat 3 kejadian pertama ke log (bukti buat diagnosis),
+                    // setelah itu diam - supaya crash_log.txt tidak membengkak lagi
+                    // kalau ternyata masih berulang terus-menerus.
+                    if (_fontFallbackLogCount <= 3)
+                    {
+                        File.AppendAllText(
+                            Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "crash_log.txt"),
+                            $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] Font resolution gagal (#{_fontFallbackLogCount}), " +
+                            $"ditangani diam-diam, app tetap lanjut jalan.\n{ex}\n\n");
+                    }
                 }
                 catch { }
-                return; // jangan tampilkan popup, biarkan app lanjut normal
+                return; // jangan tampilkan popup, biarkan app lanjut normal - SELALU, bukan cuma sekali
             }
 
             string signature = source + "|" + (ex?.GetType().FullName ?? "?") + "|" + (ex?.TargetSite?.Name ?? "?");
