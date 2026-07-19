@@ -381,6 +381,73 @@ lain, atau `YACpkTool.exe` juga pakai `System.IO.Compression` versi lama
 yang punya masalah sama seperti di 6e - source `YACpkTool.exe` sendiri
 tidak ada di repo ini, cuma binary).
 
+## 6g. Crash lagi (native, wow64) - fix .bat wrapper + pisah Compile/Launch
+
+Fix 6f (timeout + `UseShellExecute=false` di `RepackHelper`) belum
+menuntaskan - user masih dapat crash saat "Compile & Launch". Tapi log Wine
+kali ini kasih clue BARU yang lebih spesifik: backtrace crash-nya nunjuk
+LANGSUNG ke **`wow64cpu.dll`**/**`wow64.dll`** - lapisan terjemahan
+32-bit↔64-bit Windows ITU SENDIRI (bukan kode app, bukan `System.IO.Compression`
+lagi). Ini classic tanda proses baru (`CreateProcess`) gagal di-spawn dengan
+benar lewat WOW64 di lingkungan emulasi berlapis (box64 + wow64) kayak
+WinNative.
+
+**Ditemukan titik crash yang SEBENARNYA (belum pernah disentuh sebelumnya):**
+di akhir `bw_CompileModProcess_NSC`/`_NS4`, SETELAH CPK selesai di-repack,
+ada **auto-launch game** (`Process.Start()` ke `NSUNSC.exe`/`NSUNS4.exe`,
+`UseShellExecute = true`, TANPA timeout) - persis pola yang sama dengan
+`RunRepackProcess` sebelum diperbaiki di 6f, tapi titik ini belum pernah
+disentuh karena bukan bagian dari `RepackHelper`, ini kode terpisah inline
+di compile flow.
+
+**User punya 2 usulan, keduanya diimplementasikan:**
+
+1. **Panggil exe lewat file `.bat` + `cmd.exe`, bukan `Process.Start()`
+   langsung.** Alasannya masuk akal secara teknis: `cmd.exe` adalah salah
+   satu binary paling banyak & lama diuji di Wine (dipakai puluhan tahun
+   oleh countless installer/launcher legacy), jadi jalur `CreateProcess`
+   lewat `cmd.exe` kemungkinan lebih stabil dibanding P/Invoke
+   `Process.Start()` .NET langsung di emulasi berlapis.
+   **Diimplementasikan:** class baru `ProcessLauncher` (di
+   `TitleViewModel.cs`, namespace `NSC_ModManager.ViewModel`) dengan 2
+   method:
+   - `RunAndWait(exePath, args, timeoutMs)` - tulis `.bat` sementara ke
+     `%TEMP%`, jalankan lewat `cmd.exe /c batfile.bat`
+     (`UseShellExecute=false`), tunggu dengan timeout, exit code
+     dipropagasi lewat `exit /b %ERRORLEVEL%` di dalam `.bat`. Dipakai buat
+     `RepackHelper.RunHiddenProcess` (YACpkTool.exe repack/extract).
+   - `RunDetached(exePath)` - `.bat`-nya pakai `start "" "exe"` (fire-and-forget,
+     tidak nunggu game keluar), cmd.exe wrapper-nya sendiri yang ditunggu
+     (timeout pendek 30 detik, cuma buat mastiin cmd.exe-nya sendiri tidak
+     macet). Dipakai buat launch game.
+
+2. **Pisahkan Compile dari Launch** (juga alasan user: mungkin "Compile &
+   Launch" sebagai satu operasi berat gabungan lebih rawan crash). Bagian
+   auto-launch di akhir `bw_CompileModProcess_NSC`/`_NS4` **dihapus total**.
+   Ditambah:
+   - `LaunchGameCommand` (`RelayCommand` baru) - baca `StormVersion` buat
+     nentuin `NSUNSC.exe`/`NSUNS4.exe` dan folder root yang sesuai, validasi
+     folder/exe ada, lalu `ProcessLauncher.RunDetached(exePath)`.
+   - Tombol baru **"Launch"** di `TitleView.xaml`, sebelahan sama tombol
+     Compile (Compile `ColumnSpan` dikecilin dari 3 ke 2 buat kasih ruang).
+     ⚠️ Teks tombolnya **hardcoded "Launch"** (bukan `DynamicResource`
+     lokalisasi seperti tombol lain) - belum ditambahkan ke key lokalisasi
+     `m_modmanager_XXX` di 80+ file bahasa, jadi tidak ikut berubah kalau
+     user ganti bahasa app. Kalau mau rapi, perlu nambah key baru di
+     `Resources/Localization/lang.xaml` + semua file bahasa terkait -
+     di luar scope sesi ini, cukup dicatat dulu.
+
+**⚠️ Kalau masih crash setelah fix ini:** ini sudah percobaan ke-3 buat
+compile/launch flow (6e: ZIP, 6f: timeout+UseShellExecute, 6g: .bat wrapper
++ pisah command). Kalau MASIH crash di titik process-spawn yang sama,
+kemungkinan besar ini bukan lagi sesuatu yang bisa diperbaiki dari pola
+"cara manggil Process.Start" - mungkin perlu dicoba: (a) jalankan
+NSC-ModManager.exe itu sendiri BUKAN sebagai x86 tapi coba build x64 kalau
+memungkinkan (redesain besar, semua native dependency x86 - CpkMaker,
+YACpkTool kemungkinan perlu diganti juga), atau (b) laporkan ke WinNative
+sebagai bug report spesifik soal wow64 process-spawn dengan log yang sudah
+dikumpulkan sejauh ini.
+
 ## 7. Audit tambahan (belum tentu ada di crash log, ditemukan lewat code review)
 
 - **7× `CommonOpenFileDialog`** (folder picker gaya Vista, `Microsoft.WindowsAPICodePack.Dialogs`,

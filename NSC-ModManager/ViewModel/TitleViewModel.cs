@@ -145,6 +145,107 @@ namespace NSC_ModManager.ViewModel
             return result;
         }
     }
+    /// <summary>
+    /// Helper untuk menjalankan proses eksternal lewat file .bat sementara +
+    /// cmd.exe, alih-alih Process.Start() langsung ke exe target.
+    ///
+    /// Alasan: crash log Wine/WinNative nunjukin EXCEPTION_ACCESS_VIOLATION
+    /// yang backtrace-nya ada di wow64cpu.dll/wow64.dll - lapisan terjemahan
+    /// 32-bit/64-bit Windows sendiri - persis di sekitar titik proses baru
+    /// di-spawn. cmd.exe adalah salah satu program paling banyak & lama diuji
+    /// di Wine (dipakai puluhan tahun oleh countless installer/launcher
+    /// legacy), jadi jalur CreateProcess lewat cmd.exe kemungkinan lebih
+    /// stabil dibanding P/Invoke Process.Start() .NET langsung di lingkungan
+    /// emulasi berlapis (box64 + wow64) seperti WinNative.
+    /// </summary>
+    public static class ProcessLauncher
+    {
+        private const int DefaultTimeoutMs = 3 * 60 * 1000; // 3 menit
+
+        /// <summary>
+        /// Jalankan exe lewat cmd.exe/.bat dan TUNGGU sampai selesai (dipakai
+        /// untuk YACpkTool.exe - butuh tahu kapan selesai & exit code-nya).
+        /// </summary>
+        public static int RunAndWait(string exePath, string arguments, int timeoutMs = DefaultTimeoutMs)
+        {
+            string workingDirectory = Path.GetDirectoryName(exePath) ?? AppDomain.CurrentDomain.BaseDirectory;
+            string batPath = Path.Combine(Path.GetTempPath(), $"nscmm_{Guid.NewGuid():N}.bat");
+            string batContent =
+                "@echo off\r\n" +
+                $"cd /d \"{workingDirectory}\"\r\n" +
+                $"\"{exePath}\" {arguments}\r\n" +
+                "exit /b %ERRORLEVEL%\r\n";
+            File.WriteAllText(batPath, batContent);
+
+            try
+            {
+                var psi = new ProcessStartInfo
+                {
+                    FileName = "cmd.exe",
+                    Arguments = $"/c \"{batPath}\"",
+                    WorkingDirectory = workingDirectory,
+                    CreateNoWindow = true,
+                    UseShellExecute = false
+                };
+                using (var process = Process.Start(psi))
+                {
+                    bool exited = process.WaitForExit(timeoutMs);
+                    if (!exited)
+                    {
+                        try { process.Kill(); } catch { }
+                        throw new TimeoutException(
+                            $"'{Path.GetFileName(exePath)}' (via cmd.exe/.bat) tidak selesai dalam " +
+                            $"{timeoutMs / 1000} detik - proses dipaksa dihentikan.");
+                    }
+                    return process.ExitCode;
+                }
+            }
+            finally
+            {
+                try { File.Delete(batPath); } catch { /* best effort */ }
+            }
+        }
+
+        /// <summary>
+        /// Jalankan exe lewat cmd.exe/.bat TANPA menunggu selesai (dipakai
+        /// untuk launch game - "start" di dalam .bat membuat game jalan
+        /// terlepas/independen, cmd.exe wrapper-nya sendiri selesai cepat).
+        /// </summary>
+        public static void RunDetached(string exePath, string arguments = "")
+        {
+            string workingDirectory = Path.GetDirectoryName(exePath) ?? AppDomain.CurrentDomain.BaseDirectory;
+            string batPath = Path.Combine(Path.GetTempPath(), $"nscmm_{Guid.NewGuid():N}.bat");
+            string batContent =
+                "@echo off\r\n" +
+                $"cd /d \"{workingDirectory}\"\r\n" +
+                $"start \"\" \"{exePath}\" {arguments}\r\n";
+            File.WriteAllText(batPath, batContent);
+
+            var psi = new ProcessStartInfo
+            {
+                FileName = "cmd.exe",
+                Arguments = $"/c \"{batPath}\"",
+                WorkingDirectory = workingDirectory,
+                CreateNoWindow = true,
+                UseShellExecute = false
+            };
+            using (var process = Process.Start(psi))
+            {
+                // cmd.exe dengan "start" selesai cepat (tidak nunggu game keluar) -
+                // timeout pendek cukup, cuma buat mastiin cmd.exe-nya sendiri tidak macet.
+                if (process != null && !process.WaitForExit(30_000))
+                {
+                    try { process.Kill(); } catch { }
+                }
+            }
+
+            // Hapus .bat setelah delay singkat - "start" di dalam .bat sudah
+            // melepas proses target secara independen sebelum baris ini,
+            // jadi aman dihapus.
+            try { File.Delete(batPath); } catch { /* best effort */ }
+        }
+    }
+
     public class RepackHelper
     {
         private static void RemoveZoneIdentifier(string path)
@@ -205,35 +306,7 @@ namespace NSC_ModManager.ViewModel
         private static int RunHiddenProcess(string exePath, string arguments)
         {
             RemoveZoneIdentifier(exePath);
-
-            ProcessStartInfo startInfo = new ProcessStartInfo
-            {
-                FileName = exePath,
-                Arguments = arguments,
-                WorkingDirectory = AppDomain.CurrentDomain.BaseDirectory,
-                CreateNoWindow = true,
-                // UseShellExecute=false: proses di-launch langsung (CreateProcess),
-                // TIDAK lewat explorer.exe/shell. UseShellExecute=true sebelumnya
-                // membuat CreateNoWindow diabaikan (menurut dokumentasi .NET,
-                // CreateNoWindow "has no effect if UseShellExecute is true") dan
-                // integrasi shell di Wine/WinNative kadang tidak stabil - jadi ini
-                // juga sekaligus benerin CreateNoWindow yang sebelumnya percuma.
-                UseShellExecute = false
-            };
-
-            using (Process process = new Process { StartInfo = startInfo })
-            {
-                process.Start();
-                bool exited = process.WaitForExit(ProcessTimeoutMs);
-                if (!exited)
-                {
-                    try { process.Kill(); } catch { /* best effort */ }
-                    throw new TimeoutException(
-                        $"'{Path.GetFileName(exePath)}' tidak selesai dalam {ProcessTimeoutMs / 1000} detik " +
-                        "(kemungkinan macet/deadlock di lingkungan Wine/WinNative) - proses dipaksa dihentikan.");
-                }
-                return process.ExitCode;
-            }
+            return ProcessLauncher.RunAndWait(exePath, arguments, ProcessTimeoutMs);
         }
 
         public static int RunRepackProcess(string inputFolder, string outputCpk)
@@ -4705,24 +4778,12 @@ namespace NSC_ModManager.ViewModel
                 });
                 SystemSounds.Beep.Play();
 
-                //ProcessStartInfo startInfo = new ProcessStartInfo();
-                //startInfo.FileName = "steam://rungameid/1020790";
-                //startInfo.UseShellExecute = true;
-                //startInfo.CreateNoWindow = true;
-                //Process process = new Process();
-                //process.StartInfo = startInfo;
-                //process.Start();
-
-                string exePath = Path.Combine(root_folder, "NSUNSC.exe");
-                ProcessStartInfo startInfo = new ProcessStartInfo
-                {
-                    FileName = exePath,
-                    WorkingDirectory = Path.GetDirectoryName(exePath),
-                    UseShellExecute = true,
-                    CreateNoWindow = true
-                };
-                Process process = new Process { StartInfo = startInfo };
-                process.Start();
+                // Auto-launch game setelah compile DIHAPUS dari sini - dipisah jadi
+                // command terpisah (LaunchGameCommand) yang user trigger manual lewat
+                // tombol Launch. Alasan: "Compile & Launch" sebagai satu operasi berat
+                // gabungan (banyak proses spawn beruntun) lebih rawan crash di
+                // Winlator/WinNative; memisahkannya juga bikin progress compile yang
+                // sudah berhasil tidak hilang percuma kalau launch-nya yang gagal.
 
 
                 LoadingStatePlay = Visibility.Hidden;
@@ -7690,25 +7751,9 @@ namespace NSC_ModManager.ViewModel
                 });
                 SystemSounds.Beep.Play();
 
-                //ProcessStartInfo startInfo = new ProcessStartInfo();
-                //startInfo.FileName = "steam://rungameid/1020790";
-                //startInfo.UseShellExecute = true;
-                //startInfo.CreateNoWindow = true;
-                //Process process = new Process();
-                //process.StartInfo = startInfo;
-                //process.Start();
-
-                string exePath = Path.Combine(root_folder, "NSUNS4.exe");
-                ProcessStartInfo startInfo = new ProcessStartInfo
-                {
-                    FileName = exePath,
-                    WorkingDirectory = Path.GetDirectoryName(exePath),
-                    UseShellExecute = true,
-                    CreateNoWindow = true
-                };
-                Process process = new Process { StartInfo = startInfo };
-                process.Start();
-
+                // Auto-launch game setelah compile DIHAPUS dari sini - dipisah jadi
+                // command terpisah (LaunchGameCommand), lihat catatan sama di
+                // bw_CompileModProcess_NSC (versi NSC di atas).
 
                 LoadingStatePlay = Visibility.Hidden;
                 Debug.WriteLine("Completed processing.");
@@ -9064,6 +9109,49 @@ namespace NSC_ModManager.ViewModel
                           CompileMods();
                       else if (Properties.Settings.Default.StormVersion == 2)
                           CompileModsNS4();
+                  }));
+            }
+        }
+
+        private RelayCommand _launchGameCommand;
+        /// <summary>
+        /// Launch game terpisah dari compile (lihat catatan di bw_CompileModProcess_NSC/NS4).
+        /// Pakai ProcessLauncher.RunDetached (lewat cmd.exe/.bat) alih-alih
+        /// Process.Start() langsung, karena crash log Wine nunjuk ke wow64.dll
+        /// tepat di sekitar titik proses baru di-spawn.
+        /// </summary>
+        public RelayCommand LaunchGameCommand
+        {
+            get
+            {
+                return _launchGameCommand ??
+                  (_launchGameCommand = new RelayCommand(obj =>
+                  {
+                      try
+                      {
+                          string rootFolder = Properties.Settings.Default.StormVersion == 2
+                              ? Properties.Settings.Default.RootGameNS4Folder
+                              : Properties.Settings.Default.RootGameNSCFolder;
+                          string exeName = Properties.Settings.Default.StormVersion == 2
+                              ? "NSUNS4.exe" : "NSUNSC.exe";
+
+                          if (string.IsNullOrEmpty(rootFolder) || !Directory.Exists(rootFolder))
+                          {
+                              System.Windows.MessageBox.Show("Set root folder of game first!");
+                              return;
+                          }
+                          string exePath = Path.Combine(rootFolder, exeName);
+                          if (!File.Exists(exePath))
+                          {
+                              System.Windows.MessageBox.Show($"'{exeName}' not found in the selected game folder.");
+                              return;
+                          }
+                          ProcessLauncher.RunDetached(exePath);
+                      }
+                      catch (Exception ex)
+                      {
+                          HandleError(ex);
+                      }
                   }));
             }
         }
