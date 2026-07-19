@@ -105,42 +105,53 @@ namespace NSC_ModManager
         private static readonly HashSet<string> _shownCrashSignatures = new HashSet<string>();
         private static readonly object _crashLock = new object();
 
-        private static int _fontFallbackLogCount = 0;
+        private static int _frameworkInternalLogCount = 0;
+
+        /// <summary>
+        /// True kalau exception ini berasal dari kode INTERNAL WPF/.NET (System.Windows.*,
+        /// System.Xaml.*, MS.Internal.*, Microsoft.Windows.Themes.*) - bukan dari kode
+        /// app kita sendiri (NSC_ModManager.*, NSC_Toolbox.*). Terbukti dari beberapa
+        /// putaran debugging: font (MS.Internal.FontCache), DataGridHeaderBorder,
+        /// ComboBoxChrome, ScrollChrome, ClassicBorderDecorator, XamlObjectWriter saat
+        /// load template, ContentPresenter.SelectTemplate - semuanya pola yang sama:
+        /// mesin internal WPF yang rapuh di bawah Wine/WinNative, BUKAN bug logika app.
+        /// Popup untuk kategori ini tidak actionable buat user, jadi diredam diam-diam.
+        /// </summary>
+        private static bool IsFrameworkInternalFailure(Exception ex)
+        {
+            string ns = ex?.TargetSite?.DeclaringType?.Namespace;
+            if (string.IsNullOrEmpty(ns)) return false;
+            return ns.StartsWith("System.Windows") || ns.StartsWith("System.Xaml") ||
+                   ns.StartsWith("MS.Internal") || ns.StartsWith("Microsoft.Windows.Themes");
+        }
 
         private static void LogAndShowCrash(Exception ex, string source)
         {
-            // Self-healing PERMANEN untuk exception font-cache (CombineUriWithFaceIndex).
-            // Sudah dicoba banyak FontFamily berbeda (custom embedded, "Arial",
-            // "Segoe UI/Tahoma/Verdana/Arial") - semuanya crash identik, berulang
-            // tiap render pass. Ini bukti kuat ini bug di subsistem font Wine/
-            // WinNative itu sendiri, BUKAN soal font mana yang diminta. Daripada
-            // terus coba tebak nama font yang "benar", exception ini sekarang
-            // ditangani DIAM-DIAM SETIAP KALI muncul (bukan cuma sekali) - supaya
-            // app tetap jalan stabil walau elemen teks tertentu mungkin re-layout
-            // atau tampil pakai font fallback WPF bawaan. Prioritas: app tidak
-            // macet/crash-loop, bukan font terlihat sempurna.
-            if (ex is UriFormatException &&
-                ex.StackTrace != null && ex.StackTrace.Contains("CombineUriWithFaceIndex"))
+            if (IsFrameworkInternalFailure(ex))
             {
-                _fontFallbackLogCount++;
+                _frameworkInternalLogCount++;
                 try
                 {
-                    if (Application.Current?.Resources.Contains("NarutoFont") == true)
+                    // Kalau ini exception font yang sudah kita kenali, coba tetap
+                    // swap NarutoFont ke fallback (harmless, kadang membantu render
+                    // berikutnya walau root cause-nya tetap di sisi Wine).
+                    if (ex is UriFormatException &&
+                        Application.Current?.Resources.Contains("NarutoFont") == true)
                         Application.Current.Resources["NarutoFont"] = SystemFonts.MessageFontFamily;
 
-                    // Cuma catat 3 kejadian pertama ke log (bukti buat diagnosis),
-                    // setelah itu diam - supaya crash_log.txt tidak membengkak lagi
-                    // kalau ternyata masih berulang terus-menerus.
-                    if (_fontFallbackLogCount <= 3)
+                    // Cuma catat 5 kejadian pertama (dari SEMUA jenis framework-internal
+                    // failure, bukan per jenis) - biar crash_log.txt tetap kebaca, tidak
+                    // membengkak ribuan baris kalau ternyata masih sering berulang.
+                    if (_frameworkInternalLogCount <= 5)
                     {
                         File.AppendAllText(
                             Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "crash_log.txt"),
-                            $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] Font resolution gagal (#{_fontFallbackLogCount}), " +
-                            $"ditangani diam-diam, app tetap lanjut jalan.\n{ex}\n\n");
+                            $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] Framework-internal failure #{_frameworkInternalLogCount} " +
+                            $"(kemungkinan bug Wine/WinNative, bukan bug app) - diredam diam-diam.\n{ex}\n\n");
                     }
                 }
                 catch { }
-                return; // jangan tampilkan popup, biarkan app lanjut normal - SELALU, bukan cuma sekali
+                return; // JANGAN tampilkan popup - ini bukan sesuatu yang bisa user/kita perbaiki dari app
             }
 
             string signature = source + "|" + (ex?.GetType().FullName ?? "?") + "|" + (ex?.TargetSite?.Name ?? "?");

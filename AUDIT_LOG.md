@@ -218,6 +218,58 @@ C#. Yang bisa dicoba di luar app ini:
 - **JANGAN** habiskan waktu lagi coba-coba ganti string `FontFamily` di kode
   app ini — sudah terbukti tidak ada bedanya.
 
+## 6d. Generalisasi self-heal + fix Menu (⚠️ update strategi terbaru)
+
+Setelah user memperbaiki bug font di sisi **WinNative sendiri (lewat registry
+editor)** — bagus, tapi crash log berikutnya nunjukin **3 jenis error baru**:
+`NullReferenceException` di `ContentPresenter.SelectTemplate`,
+`NullReferenceException` di `XamlObjectWriter.LoadTemplateXaml` (saat load
+template), dan `NullReferenceException` di
+`Microsoft.Windows.Themes.ClassicBorderDecorator.MeasureOverride`. Ditambah
+`UriFormatException` font yang trace-nya BEDA dari sebelumnya (tidak lewat
+`CombineUriWithFaceIndex` lagi, langsung dari `GlyphTypeface..ctor`) —
+artinya jangkar deteksi lama (`Contains("CombineUriWithFaceIndex")`) tidak
+menangkap semua variannya.
+
+**Pola yang ketemu:** SEMUA exception baru ini asalnya dari namespace
+**internal WPF/.NET** (`System.Windows.*`, `System.Xaml.*`, `MS.Internal.*`,
+`Microsoft.Windows.Themes.*`), bukan dari kode app kita
+(`NSC_ModManager.*`/`NSC_Toolbox.*`). Ini pola yang sama persis dengan semua
+bug font sebelumnya — mesin internal WPF yang rapuh di Wine, tapi kali ini
+di titik-titik lain (bukan cuma font).
+
+**Perubahan strategi (di `App.xaml.cs`):** self-heal digeneralisasi.
+`IsFrameworkInternalFailure(ex)` mengecek `ex.TargetSite.DeclaringType.Namespace`
+— kalau exception asalnya dari namespace internal WPF di atas, **otomatis
+diredam diam-diam** (log cuma 5 kejadian pertama TOTAL - bukan per jenis -
+lalu diam, tidak ada popup sama sekali). Kalau exception asalnya dari kode
+app kita sendiri (`NSC_ModManager`/`NSC_Toolbox`), tetap lewat jalur lama
+(dedup + popup sekali) karena itu KEMUNGKINAN bug asli yang perlu
+diperbaiki, bukan cuma gejala environment.
+
+**Fix akar penyebab (bukan cuma redam gejala) untuk `ClassicBorderDecorator`:**
+ditemukan `<Menu>` dipakai di `TitleView.xaml` baris ~130 - `MenuItem`
+default template (khususnya submenu popup) memang klasik pakai
+`ClassicBorderDecorator`/`SystemDropShadowChrome` di baliknya. Diberi
+`ControlTemplate` PENUH untuk `Menu` & `MenuItem` (pola sama seperti
+`DataGridColumnHeader`/`ComboBox`/`ScrollBar` sebelumnya) di
+`WinlatorStyle.xaml` - handle `Role` (`TopLevelHeader`/`TopLevelItem`/
+`SubmenuHeader`/`SubmenuItem`) lewat `Trigger`, submenu render via `Popup`
+custom, tanpa native chrome sama sekali.
+
+Untuk `ContentPresenter.SelectTemplate` dan `XamlObjectWriter` NRE: stack
+trace-nya generik (cuma internal Grid/Border/ContentPresenter measure
+chain), TIDAK ada nama class app yang terlihat di trace, jadi tidak bisa
+ditunjuk elemen XAML spesifik mana yang memicu. Untuk sekarang cukup
+diredam lewat generalisasi self-heal di atas.
+
+**⚠️ Kalau lanjut sesi berikutnya:** kalau crash log baru masih nunjuk ke
+`ContentPresenter.SelectTemplate`/`XamlObjectWriter` DAN ternyata polanya
+konsisten muncul di context yang sama tiap kali (misal selalu pas buka tab
+tertentu), coba minta user reproduce sambil catat "lagi ngapain pas itu
+muncul" - itu petunjuk paling kuat buat nunjuk elemen XAML spesifiknya,
+karena stack trace WPF internal-nya sendiri tidak bisa dipakai buat itu.
+
 ## 7. Audit tambahan (belum tentu ada di crash log, ditemukan lewat code review)
 
 - **7× `CommonOpenFileDialog`** (folder picker gaya Vista, `Microsoft.WindowsAPICodePack.Dialogs`,

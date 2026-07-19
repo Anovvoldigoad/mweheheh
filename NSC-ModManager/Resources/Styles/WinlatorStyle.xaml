@@ -212,6 +212,82 @@
         </Setter>
     </Style>
 
+    <!-- ===================== MENU / MENUITEM ===================== -->
+    <!-- Sama alasannya dengan kontrol lain di atas: template default MenuItem
+         (khususnya submenu popup) memakai Microsoft.Windows.Themes.ClassicBorderDecorator
+         / SystemDropShadowChrome - chrome native yang bisa crash di Wine. -->
+    <Style TargetType="Menu">
+        <Setter Property="Background" Value="{StaticResource Win_PanelBrush}"/>
+        <Setter Property="Foreground" Value="{StaticResource Win_TextBrush}"/>
+    </Style>
+
+    <Style TargetType="MenuItem">
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="Foreground" Value="{StaticResource Win_TextBrush}"/>
+        <Setter Property="Padding" Value="8,4"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="MenuItem">
+                    <Grid>
+                        <!-- Top-level bar item (mis. "File", "Settings" di menu bar) -->
+                        <Border x:Name="TopLevelBorder" Background="{TemplateBinding Background}"
+                                Padding="{TemplateBinding Padding}" Visibility="Collapsed">
+                            <ContentPresenter ContentSource="Header" VerticalAlignment="Center"
+                                              RecognizesAccessKey="True"/>
+                        </Border>
+                        <!-- Submenu item (baris di dalam dropdown) -->
+                        <Border x:Name="SubItemBorder" Background="{TemplateBinding Background}"
+                                Padding="{TemplateBinding Padding}" Visibility="Collapsed">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <ContentPresenter Grid.Column="0" ContentSource="Header"
+                                                  VerticalAlignment="Center" RecognizesAccessKey="True"/>
+                                <Path Grid.Column="1" x:Name="SubmenuArrow" Data="M0,0 L4,4 L0,8 Z"
+                                      Fill="{StaticResource Win_TextBrush}" Margin="8,0,0,0"
+                                      VerticalAlignment="Center" Visibility="Collapsed"/>
+                            </Grid>
+                        </Border>
+                        <!-- Popup submenu (isinya item-item MenuItem lain) -->
+                        <Popup x:Name="Popup" Placement="Bottom" IsOpen="{TemplateBinding IsSubmenuOpen}"
+                               AllowsTransparency="True" Focusable="False" PopupAnimation="None">
+                            <Border Background="{StaticResource Win_PanelBrush}"
+                                    BorderBrush="{StaticResource Win_BorderBrush}" BorderThickness="1">
+                                <StackPanel IsItemsHost="True" Orientation="Vertical"/>
+                            </Border>
+                        </Popup>
+                    </Grid>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="Role" Value="TopLevelHeader">
+                            <Setter TargetName="TopLevelBorder" Property="Visibility" Value="Visible"/>
+                            <Setter Property="Placement" Value="Bottom" TargetName="Popup"/>
+                        </Trigger>
+                        <Trigger Property="Role" Value="TopLevelItem">
+                            <Setter TargetName="TopLevelBorder" Property="Visibility" Value="Visible"/>
+                        </Trigger>
+                        <Trigger Property="Role" Value="SubmenuHeader">
+                            <Setter TargetName="SubItemBorder" Property="Visibility" Value="Visible"/>
+                            <Setter TargetName="SubmenuArrow" Property="Visibility" Value="Visible"/>
+                            <Setter TargetName="Popup" Property="Placement" Value="Right"/>
+                        </Trigger>
+                        <Trigger Property="Role" Value="SubmenuItem">
+                            <Setter TargetName="SubItemBorder" Property="Visibility" Value="Visible"/>
+                        </Trigger>
+                        <Trigger Property="IsHighlighted" Value="True">
+                            <Setter TargetName="TopLevelBorder" Property="Background" Value="{StaticResource Win_AccentBrush}"/>
+                            <Setter TargetName="SubItemBorder" Property="Background" Value="{StaticResource Win_AccentBrush}"/>
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter Property="Foreground" Value="{StaticResource Win_DisabledBrush}"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
     <!-- ===================== DATAGRID ===================== -->
     <Style TargetType="DataGrid">
         <Setter Property="Background" Value="{StaticResource Win_BgBrush}"/>
