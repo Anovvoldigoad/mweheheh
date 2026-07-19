@@ -330,6 +330,57 @@ kalau ternyata bukan ini: `CpkMaker`/`YaCpkTool` class di `Properties/Program.cs
 (walau sepertinya dead code, worth di-grep ulang kalau-kalau ada
 pemanggilan yang terlewat), atau native DLL lain yang di-P/Invoke.
 
+## 6f. Macet (hang) tanpa crash setelah fix 6e
+
+Fix ZIP di bagian 6e **berhasil** - log Wine berikutnya TIDAK ada
+`ACCESS_VIOLATION` lagi. Tapi user lapor app jadi **macet total** (log Wine
+berhenti nambah baris, memori di task manager malah turun pelan-pelan -
+tanda proses idle/blocked, bukan crash) saat "Compile & Launch", sampai
+harus di-force-close manual.
+
+**Analisis:** pola "macet tanpa error apapun" = ciri khas **deadlock**, beda
+dari crash native (bagian 6e) maupun exception .NET (bagian 6a-6d). Dicurigai
+`RepackHelper.RunRepackProcess`/`RunExtractProcess` yang manggil
+`YACpkTool.exe` lewat `Process.Start()` dengan **`UseShellExecute = true`**
++ `process.WaitForExit()` **tanpa timeout**. Kalau child process gagal
+ke-launch dengan benar lewat shell (`explorer.exe`) di Wine/WinNative -
+skenario yang cukup umum karena integrasi shell Wine kadang tidak stabil -
+`WaitForExit()` nunggu **selamanya**, seluruh app (termasuk UI thread kalau
+BackgroundWorker-nya di-`Wait` secara sinkron dari situ) ikut beku.
+
+Bonus temuan: dari dokumentasi .NET, `CreateNoWindow` **"has no effect if
+UseShellExecute is true"** - jadi setting `CreateNoWindow = true` yang
+sudah ada sebelumnya sebenarnya SIA-SIA selama ini karena dipasangkan
+dengan `UseShellExecute = true`.
+
+**Fix (`ViewModel/TitleViewModel.cs`, class `RepackHelper`):**
+- Refactor `RunRepackProcess`/`RunExtractProcess` jadi pakai helper baru
+  `RunHiddenProcess()` bersama.
+- `UseShellExecute` diganti ke **`false`** - proses di-launch langsung
+  (`CreateProcess`-style), TIDAK lewat `explorer.exe`/shell sama sekali.
+  Ini juga sekaligus benerin `CreateNoWindow` yang sebelumnya percuma.
+- `WaitForExit()` diberi **timeout 3 menit** (`ProcessTimeoutMs`). Kalau
+  timeout, proses dipaksa `Kill()` dan lempar `TimeoutException` yang jelas,
+  BUKAN nunggu selamanya lagi. Jadi kalaupun akar masalahnya bukan
+  `UseShellExecute` (belum 100% pasti tanpa hasil test lagi), app sekarang
+  TIDAK BISA macet permanen lagi - paling parah gagal dengan pesan jelas
+  setelah 3 menit.
+- Fallback PowerShell `Unblock-File` di `RemoveZoneIdentifier` juga dikasih
+  timeout (5 detik) dengan alasan sama - sebelumnya juga `WaitForExit()`
+  tanpa timeout, dan ini dipanggil di AWAL tiap proses YACpkTool jadi kalau
+  ini yang macet, dampaknya sama persis.
+
+**⚠️ Kalau masih macet setelah fix ini:** karena sekarang ada timeout 3
+menit, app HARUSNYA tidak lagi beku selamanya - tunggu sampai muncul pesan
+error `TimeoutException` (atau minta user tunggu penuh 3 menit kalau
+belum coba). Kalau pesan itu muncul, berarti dugaan `UseShellExecute`
+benar tapi belum menuntaskan akar masalah childprocess-nya sendiri kenapa
+macet - perlu digali lagi kenapa `YACpkTool.exe` sendiri macet di
+lingkungan ini (kemungkinan masalah serupa dengan `CpkMaker`/native x86
+lain, atau `YACpkTool.exe` juga pakai `System.IO.Compression` versi lama
+yang punya masalah sama seperti di 6e - source `YACpkTool.exe` sendiri
+tidak ada di repo ini, cuma binary).
+
 ## 7. Audit tambahan (belum tentu ada di crash log, ditemukan lewat code review)
 
 - **7× `CommonOpenFileDialog`** (folder picker gaya Vista, `Microsoft.WindowsAPICodePack.Dialogs`,

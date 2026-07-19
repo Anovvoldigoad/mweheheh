@@ -177,7 +177,15 @@ namespace NSC_ModManager.ViewModel
                 };
                 using (var p = Process.Start(psi))
                 {
-                    p.WaitForExit();
+                    // Timeout pendek - PowerShell kemungkinan besar tidak ada sama
+                    // sekali di Wine/WinNative (bukan komponen Windows bawaan), jadi
+                    // ini cuma best-effort. Jangan sampai nunggu selamanya kalau
+                    // ternyata ada shim "powershell" yang macet alih-alih langsung
+                    // gagal dengan jelas (Win32Exception, sudah ditangani di bawah).
+                    if (p != null && !p.WaitForExit(5000))
+                    {
+                        try { p.Kill(); } catch { }
+                    }
                 }
             } catch
             {
@@ -185,68 +193,75 @@ namespace NSC_ModManager.ViewModel
             }
         }
 
-        public static int RunRepackProcess(string inputFolder, string outputCpk)
-        {
-            string exePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "YACpkTool.exe");
+        // Timeout maksimal nunggu YACpkTool.exe selesai. Sebelumnya WaitForExit()
+        // dipanggil TANPA timeout - kalau child process macet/deadlock di Wine
+        // (mis. karena UseShellExecute=true yang lewat explorer.exe shell, yang
+        // integrasinya kadang tidak stabil di Wine/WinNative), seluruh app ikut
+        // "macet" selamanya tanpa pesan apapun, cuma bisa di-force-close. Dengan
+        // timeout, kalaupun masih ada masalah lain, app akan gagal dengan jelas
+        // alih-alih membeku permanen.
+        private const int ProcessTimeoutMs = 3 * 60 * 1000; // 3 menit
 
-            // Разблокируем сам YACpkTool.exe перед запуском
+        private static int RunHiddenProcess(string exePath, string arguments)
+        {
             RemoveZoneIdentifier(exePath);
 
             ProcessStartInfo startInfo = new ProcessStartInfo
             {
                 FileName = exePath,
-                Arguments = $"\"{inputFolder}\"",
+                Arguments = arguments,
                 WorkingDirectory = AppDomain.CurrentDomain.BaseDirectory,
                 CreateNoWindow = true,
-                UseShellExecute = true,
-                WindowStyle = ProcessWindowStyle.Hidden
+                // UseShellExecute=false: proses di-launch langsung (CreateProcess),
+                // TIDAK lewat explorer.exe/shell. UseShellExecute=true sebelumnya
+                // membuat CreateNoWindow diabaikan (menurut dokumentasi .NET,
+                // CreateNoWindow "has no effect if UseShellExecute is true") dan
+                // integrasi shell di Wine/WinNative kadang tidak stabil - jadi ini
+                // juga sekaligus benerin CreateNoWindow yang sebelumnya percuma.
+                UseShellExecute = false
             };
 
             using (Process process = new Process { StartInfo = startInfo })
             {
                 process.Start();
-                process.WaitForExit();
-
-                string generatedCpk = inputFolder + ".cpk";
-                if (File.Exists(generatedCpk))
+                bool exited = process.WaitForExit(ProcessTimeoutMs);
+                if (!exited)
                 {
-                    File.Move(generatedCpk, outputCpk, true);
+                    try { process.Kill(); } catch { /* best effort */ }
+                    throw new TimeoutException(
+                        $"'{Path.GetFileName(exePath)}' tidak selesai dalam {ProcessTimeoutMs / 1000} detik " +
+                        "(kemungkinan macet/deadlock di lingkungan Wine/WinNative) - proses dipaksa dihentikan.");
                 }
-
                 return process.ExitCode;
             }
+        }
+
+        public static int RunRepackProcess(string inputFolder, string outputCpk)
+        {
+            string exePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "YACpkTool.exe");
+            int exitCode = RunHiddenProcess(exePath, $"\"{inputFolder}\"");
+
+            string generatedCpk = inputFolder + ".cpk";
+            if (File.Exists(generatedCpk))
+            {
+                File.Move(generatedCpk, outputCpk, true);
+            }
+
+            return exitCode;
         }
 
         public static int RunExtractProcess(string inputCpk, string outputFolder = "")
         {
             string exePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "YACpkTool.exe");
+            int exitCode = RunHiddenProcess(exePath, $"\"{inputCpk}\"");
 
-            // Разблокируем сам YACpkTool.exe перед запуском
-            RemoveZoneIdentifier(exePath);
-
-            ProcessStartInfo startInfo = new ProcessStartInfo
+            // Очистка меток распакованных файлов (опционально)
+            if (!string.IsNullOrEmpty(outputFolder) && Directory.Exists(outputFolder))
             {
-                FileName = exePath,
-                Arguments = $"\"{inputCpk}\"",
-                WorkingDirectory = AppDomain.CurrentDomain.BaseDirectory,
-                CreateNoWindow = true,
-                UseShellExecute = true,
-                WindowStyle = ProcessWindowStyle.Hidden
-            };
-
-            using (Process process = new Process { StartInfo = startInfo })
-            {
-                process.Start();
-                process.WaitForExit();
-
-                // Очистка меток распакованных файлов (опционально)
-                if (!string.IsNullOrEmpty(outputFolder) && Directory.Exists(outputFolder))
-                {
-                    // при необходимости можно вызвать рекурсивное RemoveZoneIdentifier для файлов в outputFolder
-                }
-
-                return process.ExitCode;
+                // при необходимости можно вызвать рекурсивное RemoveZoneIdentifier для файлов в outputFolder
             }
+
+            return exitCode;
         }
 
         /// <summary>
