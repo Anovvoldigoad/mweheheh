@@ -270,6 +270,66 @@ tertentu), coba minta user reproduce sambil catat "lagi ngapain pas itu
 muncul" - itu petunjuk paling kuat buat nunjuk elemen XAML spesifiknya,
 karena stack trace WPF internal-nya sendiri tidak bisa dipakai buat itu.
 
+## 6e. Crash native ACCESS_VIOLATION saat "Compile & Launch" (tanpa crash_log.txt!)
+
+Beda dari semua bug sebelumnya: kali ini **tidak ada `crash_log.txt`** sama
+sekali, karena ini **crash native (`EXCEPTION_ACCESS_VIOLATION`, code
+`c0000005`)**, bukan exception .NET terkelola — handler
+`AppDomain.UnhandledException`/`DispatcherUnhandledException` kita CUMA bisa
+nangkep exception .NET, sama sekali tidak bisa nangkep native memory-access
+crash kayak gini. User kirim log dari WinNative sendiri (`wine_wfm_*.txt` +
+`box64_wfm_*.txt`) sebagai gantinya — ini pertama kalinya kita analisis dari
+log level Wine, bukan `crash_log.txt` app.
+
+**Cara baca log Wine kalau ada kasus serupa lagi:** cari
+`EXCEPTION_ACCESS_VIOLATION exception (code=c0000005)` — itu titik crash
+sungguhan. Cari juga thread ID yang sama (`XXXX:` di awal tiap baris) di
+baris-baris SEBELUMNYA buat lihat modul/DLL apa yang lagi dimuat/dipakai
+tepat sebelum crash - itu petunjuk utama, karena Wine TIDAK ngasih stack
+trace .NET yang bisa dibaca (beda dari `crash_log.txt` kita).
+
+**Temuan:** thread yang crash (background thread, dari
+`bw_CompileModProcess` / `BackgroundWorker`) sempat memuat
+`System.IO.Compression.dll` dan mencoba memuat
+`System.IO.Compression.Native` — **GAGAL** (`status=c0000135` /
+`STATUS_INVALID_IMAGE_FORMAT`). ~37 detik kemudian (kerja lain di
+background), proses crash.
+
+**Diperiksa dulu (supaya tidak salah tuduh):** sempat dicurigai
+`CriCpkMaker.CpkMaker` (assembly x86 pihak ketiga, closed-source, dipanggil
+langsung/in-process oleh `Properties/Program.cs`'s `YaCpkTool` class) - tapi
+ternyata **TIDAK dipakai** oleh alur compile yang sebenarnya di
+`TitleViewModel.cs`. Alur compile pakai `RepackHelper.RunRepackProcess`/
+`RunExtractProcess`, yang **sudah benar** spawn `YACpkTool.exe` sebagai
+**proses terpisah** (`Process.Start` + `WaitForExit`) - jadi SUDAH terisolasi
+dengan benar, bukan sumber crash ini. `YaCpkTool`/`Program.cs`'s `CpkMaker`
+in-process TIDAK dipanggil di manapun dalam alur compile - kemungkinan
+sisa/dead code dari refactor sebelumnya.
+
+**Kesimpulan & fix:** `System.IO.Compression.ZipFile.ExtractToDirectory`
+(3 titik: 2× `TitleViewModel.cs` baris ~7805 & ~7849, 1×
+`View/TitleView.xaml.cs` baris ~209) butuh native shim
+`System.IO.Compression.Native.dll` yang **terbukti gagal load** di log Wine.
+Kalau CLR mencoba manggil function pointer dari native module yang gagal
+dimuat/corrupt, itu bisa jadi `ACCESS_VIOLATION` alih-alih exception .NET
+yang bisa ditangkap - match persis sama gejalanya.
+
+**Fix:** ketiga titik itu diganti ke `RepackHelper.ExtractZipSafe()` (method
+baru), pakai **SharpZipLib** (`ICSharpCode.SharpZipLib.Zip.FastZip`) -
+sudah ada di `PackageReference` (versi 1.4.2) tapi sebelumnya TIDAK
+dipakai di manapun. SharpZipLib itu 100% pure-managed, TIDAK butuh native
+shim sama sekali, jadi seharusnya kebal dari masalah loading native module
+kayak gini.
+
+**⚠️ Kalau masih crash setelah fix ini:** karena TIDAK ada `crash_log.txt`
+buat kasus native crash begini, **minta log Wine/box64 lagi dari WinNative**
+(seperti yang dikirim kali ini) - itu satu-satunya cara diagnosis untuk
+native crash. Cari lagi `ACCESS_VIOLATION`, lihat modul apa yang dimuat
+tepat sebelum itu di thread yang sama. Kandidat lain yang belum diperiksa
+kalau ternyata bukan ini: `CpkMaker`/`YaCpkTool` class di `Properties/Program.cs`
+(walau sepertinya dead code, worth di-grep ulang kalau-kalau ada
+pemanggilan yang terlewat), atau native DLL lain yang di-P/Invoke.
+
 ## 7. Audit tambahan (belum tentu ada di crash log, ditemukan lewat code review)
 
 - **7× `CommonOpenFileDialog`** (folder picker gaya Vista, `Microsoft.WindowsAPICodePack.Dialogs`,

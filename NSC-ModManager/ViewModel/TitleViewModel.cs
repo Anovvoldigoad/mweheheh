@@ -248,6 +248,23 @@ namespace NSC_ModManager.ViewModel
                 return process.ExitCode;
             }
         }
+
+        /// <summary>
+        /// Extract .zip pakai SharpZipLib (pure managed, TANPA native shim
+        /// System.IO.Compression.Native.dll). Log Wine/WinNative memastikan
+        /// System.IO.Compression.Native.dll gagal load ("status=c0000135")
+        /// di beberapa lingkungan Winlator/WinNative - System.IO.Compression.ZipFile
+        /// bawaan .NET butuh native shim itu, kalau gagal load bisa memicu
+        /// ACCESS_VIOLATION native (bukan exception .NET biasa - tidak bisa
+        /// ditangkap try-catch, dan bisa menjatuhkan seluruh proses app).
+        /// SharpZipLib tidak butuh native shim sama sekali, jadi lebih aman
+        /// dipakai di lingkungan ini.
+        /// </summary>
+        public static void ExtractZipSafe(string zipPath, string destinationFolder, bool overwrite = true)
+        {
+            var fastZip = new ICSharpCode.SharpZipLib.Zip.FastZip();
+            fastZip.ExtractZip(zipPath, destinationFolder, null);
+        }
     }
     public class TitleViewModel : INotifyPropertyChanged
     {
@@ -7802,7 +7819,7 @@ namespace NSC_ModManager.ViewModel
                     ExtractNus4(mod_path, InstallMod_folder);
                 } else
                 {
-                    System.IO.Compression.ZipFile.ExtractToDirectory(mod_path, InstallMod_folder);
+                    RepackHelper.ExtractZipSafe(mod_path, InstallMod_folder);
                 }
 
                 RefreshModList();
@@ -7846,7 +7863,7 @@ namespace NSC_ModManager.ViewModel
                     outFs.Write(fileData, offset, fileData.Length - offset);
                     outFs.Flush();
                 }
-                System.IO.Compression.ZipFile.ExtractToDirectory(tempZip, extractedTemp);
+                RepackHelper.ExtractZipSafe(tempZip, extractedTemp);
 
                 // --- create destination structure (do not extract into destination) ---
                 Directory.CreateDirectory(destinationFolder);

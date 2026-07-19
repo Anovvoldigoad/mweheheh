@@ -206,7 +206,7 @@ namespace NSC_ModManager {
                             Directory.Delete(InstallMod_folder, true);
                         }
                         Directory.CreateDirectory(InstallMod_folder);
-                        System.IO.Compression.ZipFile.ExtractToDirectory(mod_path, @InstallMod_folder);
+                        RepackHelper.ExtractZipSafe(mod_path, InstallMod_folder);
                         TitleViewModel VM = ((TitleViewModel)this.DataContext);
                         VM.RefreshModList();
                     } catch (Exception ex) {
