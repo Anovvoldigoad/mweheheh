@@ -1024,15 +1024,42 @@ namespace NSC_ModManager.ViewModel
         {
             var args = (WorkerArgs)e.Argument;
 
-            switch (args.Index)
+            // PENTING: proses compile dijalankan di Thread terpisah dengan stack
+            // size BESAR (64MB), bukan langsung di thread ThreadPool bawaan
+            // BackgroundWorker (default stack size umumnya cuma 1MB). Log Wine
+            // nunjukin "CLR: Managed code called FailFast" didahului beberapa
+            // ACCESS_VIOLATION beruntun di alamat tanpa nama modul - tanda tangan
+            // klasik StackOverflowException, kemungkinan dari parsing struktur
+            // chunk XFBIN yang dalam/rekursif (XFBIN_LIB.dll) atau memang stack
+            // default di lingkungan Wine/WinNative lebih kecil dari yang
+            // dibutuhkan. Bungkus ini TIDAK mengubah logika compile sama sekali -
+            // cuma pindah "panggung" tempat logikanya jalan.
+            Exception capturedException = null;
+            var compileThread = new Thread(() =>
             {
-                case 1:
-                    bw_CompileModProcess_NSC(args.Path);
-                    break;
-                case 2:
-                    bw_CompileModProcess_NS4(args.Path);
-                    break;
-            }
+                try
+                {
+                    switch (args.Index)
+                    {
+                        case 1:
+                            bw_CompileModProcess_NSC(args.Path);
+                            break;
+                        case 2:
+                            bw_CompileModProcess_NS4(args.Path);
+                            break;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    capturedException = ex;
+                }
+            }, 64 * 1024 * 1024); // 64MB stack, jauh di atas default 1MB
+            compileThread.IsBackground = true;
+            compileThread.Start();
+            compileThread.Join();
+
+            if (capturedException != null)
+                throw capturedException; // propagate ke RunWorkerCompleted.Error seperti biasa
         }
         private void SetYear(object parameter)
         {

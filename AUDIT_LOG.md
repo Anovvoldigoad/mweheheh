@@ -448,6 +448,192 @@ YACpkTool kemungkinan perlu diganti juga), atau (b) laporkan ke WinNative
 sebagai bug report spesifik soal wow64 process-spawn dengan log yang sudah
 dikumpulkan sejauh ini.
 
+## 6h. Crash lagi (native) - clue baru: dynamic codegen / kemungkinan bug SIMD box64
+
+Setelah 6g (ProcessLauncher via .bat + pisah Compile/Launch), **masih crash**
+saat compile & launch, kali ini di log **mode trace** (jauh lebih detail).
+User klarifikasi maksud "pisah compile|launch" sebelumnya = literally 2
+tombol terpisah di UI (sudah benar diimplementasikan di 6g), bukan makna
+lain.
+
+**Temuan baru dari log trace:** thread yang crash (`0150`, PID beda dari
+sebelumnya) sempat memuat modul **`System.Reflection.Emit.ILGeneration.dll`**,
+**`System.Reflection.Emit.Lightweight.dll`**, **`System.Reflection.Primitives.dll`**
+tepat sebelum crash - modul-modul ini cuma dipakai kalau ada kode yang
+melakukan **dynamic IL/code generation saat runtime** (`DynamicMethod`,
+`Expression.Compile()`, compiled Regex, dll - BUKAN soal ZIP/Process.Start
+lagi seperti 6e/6f/6g). Setelah loading itu, ada **jeda ~15 detik** tanpa
+log activity, lalu crash. Alamat crash kedua (`addr=0638EF0F`) **tidak
+punya nama modul** - ciri khas kode yang di-generate saat runtime (bukan
+dari file DLL manapun di disk), yang cocok dengan dugaan di atas. Setelah
+crash, proses sempat lanjut sebentar (`FindResourceExW`/`LoadResource`
+berulang - kemungkinan coba build pesan error) lalu `RaiseFailFastException`
+- .NET runtime SENDIRI yang mengakhiri proses (bukan cuma AV biasa yang
+dibiarkan lolos).
+
+**Sudah dicek, BUKAN penyebabnya:** Newtonsoft.Json tidak direferensikan di
+`NSC-ModManager.csproj` langsung (cuma dependency `XFBIN_LIB`), tidak ada
+`RegexOptions.Compiled` di project ini. Jadi trigger Reflection.Emit-nya
+kemungkinan dari WPF Binding engine internal (fast-path property accessor)
+atau LINQ Expression Tree yang dipakai library lain (Octokit/SharpZipLib/
+AvalonDock) - belum bisa dipastikan persis dari mana tanpa test lebih lanjut.
+
+**Hipotesis kerja (BELUM diverifikasi):** kombinasi "dynamic codegen" +
+"crash di alamat tanpa modul" mengarah ke kemungkinan **bug translasi
+instruksi SIMD/vector (SSE/AVX→NEON) di box64** - kategori bug yang memang
+umum terjadi kalau CPU x86 diemulasi ke ARM (perangkat Android). JIT .NET
+modern sering generate kode SIMD untuk optimasi performa.
+
+**⚠️ Langkah selanjutnya (belum dikerjakan, MINTA VERIFIKASI DULU sebelum
+ubah kode lagi):** user diminta tes MANUAL dulu (tanpa rebuild) - set
+environment variable `DOTNET_EnableHWIntrinsic=0` di WinNative (sama seperti
+cara set `NSC_MM_SKIP_UPDATE_CHECK` sebelumnya). Ini memaksa JIT .NET TIDAK
+PERNAH pakai instruksi SIMD/vector, fallback ke instruksi skalar biasa.
+
+- **Kalau env var ini FIXED crash-nya:** hipotesis SIMD/box64 terbukti benar.
+  Langkah lanjut: bikin app SELF-RELAUNCH otomatis dengan env var ini di-set
+  (perlu custom `Main()` + `<StartupObject>`, karena env var CoreCLR knob
+  begini harus di-set SEBELUM proses/runtime start, tidak bisa dari dalam
+  `App.xaml.cs` constructor yang jalan setelah runtime sudah init) - supaya
+  user tidak perlu set manual tiap kali.
+- **Kalau TIDAK membantu:** hipotesis ini salah, perlu analisis ulang dari
+  awal - kemungkinan besar minta log trace lagi dan cari clue lain di
+  jeda 15 detik itu (apa lagi yang jalan di situ selain loading
+  Reflection.Emit).
+
+**Kenapa belum langsung saya kodekan:** menambah custom `Main()`/`StartupObject`
+itu perubahan struktural (bukan sekadar tweak baris kode), dan kalau
+hipotesis SIMD-nya ternyata salah, itu perubahan sia-sia yang menambah
+kompleksitas tanpa manfaat. Lebih efisien verifikasi dulu lewat env var
+manual (instant, tanpa build ulang) sebelum commit ke perubahan kode.
+
+## 6i. StackOverflowException (bukan SIMD) - fix: jalankan compile di thread stack besar
+
+Env var `DOTNET_EnableHWIntrinsic=0` dari 6h **TIDAK membantu** - hipotesis
+SIMD/box64 terbukti salah. Log trace berikutnya (dianalisis baris demi
+baris sesuai permintaan) kasih clue yang JAUH lebih definitif kali ini:
+
+```
+[23:33:25]  011c:warn:seh:OutputDebugStringW L"CLR: Managed code called FailFast.\r\n"
+```
+
+Pesan ini **spesifik dan tidak ambigu** - ini string debug yang CoreCLR
+sendiri keluarkan pas menangani kondisi yang TIDAK BISA di-recover, paling
+umum: **`StackOverflowException`** (.NET SELALU langsung `FailFast` untuk
+stack overflow sungguhan, karena tidak aman dilanjutkan/di-catch). Pola
+pendukung: beberapa `ACCESS_VIOLATION` beruntun sebelumnya, di alamat
+BERBEDA-BEDA tanpa nama modul (`addr=005BEA14`, lalu `addr=0F925480`, dst)
+- konsisten dengan CLR mencoba unwind stack yang sudah overflow, gagal
+berkali-kali, sebelum akhirnya nyerah dan FailFast.
+
+**Ini mengubah total arah investigasi** - SEMUA teori sebelumnya (6e: ZIP
+native shim, 6f: UseShellExecute/timeout, 6g: .bat wrapper, 6h: SIMD/box64)
+ternyata bukan akar masalah sebenarnya. Untungnya perbaikan-perbaikan itu
+tetap valid/bermanfaat sebagai hardening umum (tidak ada yang perlu di-revert).
+
+**Dicoba cari letak rekursi pastinya:** sudah di-scan `TitleViewModel.cs`
+(area compile), `XfbinParser.cs`, `BinaryReader.cs` - TIDAK ketemu fungsi
+yang jelas memanggil dirinya sendiri di kode KITA. Kemungkinan besar
+rekursinya ada di dalam **`XFBIN_LIB.dll` (prebuilt, bukan dari source yang
+di-upload user - ingat source itu SUDAH TERBUKTI versi tidak sinkron, lihat
+bagian 4)** saat parsing struktur chunk yang dalam/nested, ATAU memang stack
+default di lingkungan Wine/WinNative lebih kecil dari yang genuinely
+dibutuhkan proses compile (bukan bug rekursi liar, cuma butuh lebih banyak
+stack dari yang tersedia).
+
+**Fix yang diimplementasikan (rendah risiko, TIDAK mengubah logika compile
+sama sekali):** `bw_CompileModProcess` (dispatcher `DoWork` handler
+`BackgroundWorker`, dulunya jalan di thread ThreadPool dengan stack default
+~1MB) sekarang membungkus pemanggilan `bw_CompileModProcess_NSC`/`_NS4` di
+dalam `System.Threading.Thread` BARU dengan **stack size eksplisit 64MB**.
+Exception yang ketangkep di thread besar itu di-rethrow di akhir, supaya
+tetap ke-propagate ke `RunWorkerCompleted.Error` persis seperti sebelumnya
+(tidak ada perubahan behavior selain UKURAN STACK-nya).
+
+**Kenapa ini dianggap rendah risiko:** cuma nambah wrapper di method
+dispatcher yang PENDEK (bukan ngoprek logika compile 3000+ baris yang
+sebenarnya) - `bw_CompileModProcess_NSC`/`_NS4` dan semua isinya (termasuk
+`bw.ReportProgress`, akses field instance, dll) TIDAK disentuh sama sekali,
+cuma dipanggil dari "panggung" (thread) yang berbeda.
+
+**⚠️ Kalau masih crash setelah ini:** kalau `StackOverflowException` teori
+BENAR tapi 64MB masih kurang (kemungkinan kecil tapi mungkin), bisa
+dinaikkan lagi (misal 128MB/256MB) di parameter kedua constructor `Thread`
+di `bw_CompileModProcess`. Kalau SAMA SEKALI tidak membantu, berarti teori
+StackOverflow-nya salah juga - minta log trace baru lagi, dan kali ini
+coba juga cross-check dengan mengurangi ukuran mod yang di-compile (kalau
+crash cuma terjadi pada mod BESAR/kompleks tapi tidak pada mod kecil, itu
+mengkonfirmasi teori stack/rekursi; kalau crash konsisten bahkan dengan mod
+kecil, teorinya kemungkinan salah dan perlu arah investigasi baru lagi).
+
+**Reminder soal pemisahan Compile|Launch (dari sesi ini juga ditanya
+ulang oleh user):** SUDAH diimplementasikan dengan benar di 6g (dua command
+terpisah, `CompileModsCommand` & `LaunchGameCommand`, dua tombol terpisah di
+UI) dan TIDAK disentuh/diregresi di bagian 6h/6i ini - masih utuh.
+
+## 6i. Ketemu akar masalah sebenarnya: STACK OVERFLOW (bukan SIMD/box64)
+
+Tes `DOTNET_EnableHWIntrinsic=0` dari 6h **tidak menyelesaikan** crash (atau
+belum sempat diverifikasi user apply dengan benar - tidak bisa dipastikan
+dari log karena env var memang tidak tercatat di log Wine). Tapi log trace
+berikutnya kasih clue yang JAUH lebih definitif: ada baris eksplisit dari
+CLR sendiri:
+
+```
+warn:seh:OutputDebugStringW L"CLR: Managed code called FailFast.\r\n"
+```
+
+didahului **4× `EXCEPTION_ACCESS_VIOLATION` beruntun** dalam ~1 detik
+(bukan cuma 1 seperti sebelumnya), di alamat-alamat yang berbeda-beda
+(kadang ada frame `wow64cpu.dll`/`wow64.dll`, kadang tidak). Pola "exception
+beruntun sampai runtime eksplisit menyerah" ini adalah **tanda tangan klasik
+`StackOverflowException`** - .NET tidak bisa menangani stack overflow
+dengan cara normal (try-catch biasa tidak bisa nangkep ini), jadi CLR
+langsung FailFast begitu mendeteksinya, dan usaha exception-handling itu
+sendiri butuh stack yang sudah habis - makanya beruntun sebelum akhirnya
+CLR paksa berhenti.
+
+**Kenapa ini masuk akal:** `bw_CompileModProcess_NSC`/`_NS4` jalan di atas
+`BackgroundWorker`, yang secara internal pakai **ThreadPool** - dan
+ThreadPool worker thread di .NET defaultnya cuma dapat stack **~1MB**.
+Proses compile ini MEMANG berat (parsing banyak file XFBIN, kemungkinan
+lewat `XFBIN_LIB.dll` yang parsing struktur chunk yang bisa dalam/nested),
+dan di lingkungan emulasi berlapis (box64+wow64), overhead per-frame stack
+kemungkinan lebih besar dari native Windows - kombinasi keduanya bikin
+1MB itu ketembus.
+
+**Fix:** `bw_CompileModProcess` (dispatcher `DoWork`, method di baris
+~1023) sekarang membungkus pemanggilan `bw_CompileModProcess_NSC`/`_NS4`
+dengan `System.Threading.Thread` **kustom, stack 64MB** (bukan default
+~1MB), pakai `compileThread.Join()` supaya tetap sinkron dari sudut pandang
+BackgroundWorker (exception ditangkap manual lalu di-`throw` lagi setelah
+Join, supaya tetap ke-propagate ke `Bw_RunWorkerCompleted`'s `e.Error`
+seperti biasa). **Sama sekali tidak menyentuh logika compile itu sendiri**
+(method 3000+ baris `bw_CompileModProcess_NSC`/`_NS4` tidak diubah) -
+cuma pindah "panggung" (thread) tempat logika itu dieksekusi. Ini
+perubahan paling minim-risiko dibanding alternatif lain (mis. cari & benerin
+satu-satu titik rekursi di parsing XFBIN, yang jauh lebih makan waktu dan
+berisiko ubah logika parsing yang sensitif).
+
+**Kenapa saya pilih ini dibanding lanjut teori SIMD (6h):** bukti "CLR:
+Managed code called FailFast" + pola beruntun itu jauh lebih definitif
+mengarah ke stack overflow dibanding dugaan SIMD sebelumnya (yang random
+mengeneralisasi dari "alamat crash tanpa nama modul" - ternyata itu bisa
+juga karena JIT compile method HASH biasa, bukan cuma dynamic-emit code).
+`DOTNET_EnableHWIntrinsic=0` tetap boleh dicoba lagi kalau fix stack size
+ini TIDAK menyelesaikan - keduanya tidak saling eksklusif, bisa dipakai
+bersamaan.
+
+**Compile & Launch tetap terpisah** (sesuai 6g, dikonfirmasi ulang tidak
+ada auto-launch yang nyelip balik ke compile flow saat fix ini dikerjakan).
+
+**⚠️ Kalau masih crash setelah ini:** minta log trace baru lagi. Kalau
+masih ada pola "beruntun AV + FailFast" yang SAMA, coba naikkan stack size
+lagi (64MB → 128MB, tinggal ubah angka di parameter `Thread` constructor).
+Kalau pola crash-nya BEDA (cuma 1 AV, bukan beruntun) berarti stack
+overflow sudah teratasi dan ini bug lain lagi - kembali ke pendekatan
+investigasi per-kasus seperti biasa.
+
 ## 7. Audit tambahan (belum tentu ada di crash log, ditemukan lewat code review)
 
 - **7× `CommonOpenFileDialog`** (folder picker gaya Vista, `Microsoft.WindowsAPICodePack.Dialogs`,
