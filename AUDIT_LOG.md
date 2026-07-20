@@ -681,6 +681,128 @@ DI DALAM `YACpkTool.exe` (proses eksternal) saat memproses file itu - beda
 penanganan dengan kalau crash-nya di antara dua checkpoint compile biasa
 (logika C# kita sendiri / `XFBIN_LIB.dll`).
 
+## 6k. Klarifikasi: log terakhir masih dari build LAMA + checkpoint granular baru dikirim
+
+Log yang dikirim user kali ini (`compile_progress.log`, `crash_log.txt`,
+`wine_wfm_*`) ternyata masih hasil test dari **build sebelumnya** (yang cuma
+punya checkpoint kasar - "mulai"/"CleanGameAssets"/"InstallModdingAPI"/
+"mulai-selesai repack X") - karena di respons SEBELUMNYA percakapan
+terpotong PAS saya lagi validasi 33 checkpoint granular tambahan (buat isi
+celah ~2500 baris antara "selesai InstallModdingAPI" dan "mulai extract
+CPK" pertama) SEBELUM sempat di-repackage & dikirim ke user. Jadi belum ada
+info baru dari sisi checkpoint - masih berhenti persis di titik yang sama
+("NSC: selesai InstallModdingAPI").
+
+**Yang dikerjakan sesi ini:**
+1. **Validasi ulang & bersihkan** 33 checkpoint granular yang sempat
+   disisipkan otomatis (tiap ~150 baris) - ternyata **6 di antaranya
+   nyempil di posisi BERBAHAYA** (persis setelah keyword `if(...)`/`else`
+   tanpa kurung kurawal, yang berarti `CompileCheckpoint(...)` itu akan
+   jadi body if/else-nya dan kode ASLI yang harusnya conditional jadi
+   unconditional - BUKAN cuma gagal compile, tapi BISA DIAM-DIAM MENGUBAH
+   LOGIKA PROGRAM kalau lolos tidak ketahuan). Ke-6 titik itu dihapus,
+   sisa **27 checkpoint granular** yang aman (posisinya di akhir statement
+   yang sudah lengkap - diakhiri `;`, `{`, `}`, baris kosong, atau komentar).
+2. **Zip terbaru SUDAH dikirim** ke user kali ini - berisi total **~60
+   checkpoint** (33 lama di titik semantik + 27 baru tiap ~150 baris) di
+   sepanjang `bw_CompileModProcess_NSC`/`_NS4`.
+
+**Bonus konfirmasi dari `crash_log.txt` kali ini:** ada 1 entry
+`Framework-internal failure #1` - `NullReferenceException` di
+`System.Windows.Media.Animation.TimeIntervalCollection.ProjectOntoPeriodicFunction`
+(bug WPF internal di sistem animasi/clock, TIDAK ada hubungannya dengan
+compile flow) - **berhasil diredam otomatis** oleh
+`IsFrameworkInternalFailure` (6d) TANPA popup, cuma tercatat rapi 1 baris.
+Ini BUKTI NYATA bahwa mekanisme self-heal generik dari 6d BEKERJA SEPERTI
+DIRENCANAKAN di real-world usage, bukan cuma teori.
+
+**⚠️ Langkah selanjutnya:** user perlu test ULANG pakai zip yang BARU
+dikirim ini (bukan yang sebelumnya). Kalau masih crash, `compile_progress.log`
+seharusnya sekarang punya baris terakhir jauh lebih presisi (granularitas
+~150 baris kode, bukan ~2500 baris lagi) - itu yang paling dibutuhkan buat
+lanjut analisis.
+
+## 6l. Fix build error (bug checkpoint saya) + ringankan spinner loading
+
+**Build error dari GitHub Actions:** `CS1003`/`CS1026` di
+`TitleViewModel.cs(3683,34)` - "while expected". Penyebab: 1 dari 27
+checkpoint granular (6j) ternyata nyempil PERSIS di antara `}` penutup blok
+`do { ... }` dan `while(...)` di bawahnya - pola `do-while` yang saya lewatkan
+dari validasi sebelumnya (validasi cuma cek baris SEBELUM checkpoint
+berakhir `;`/`{`/`}`, tidak cek apakah baris SESUDAHNYA adalah `while(...)`
+yang jadi bagian dari statement `do-while` yang sama). **Fix:** checkpoint
+itu dipindah ke SETELAH seluruh statement `do-while` selesai (setelah `;`
+penutup `while(...)`). Sudah di-scan ulang, tidak ada pola serupa (checkpoint
+diikuti langsung `while`/`else`) di tempat lain.
+
+**Pengingat kalau nanti nyisip checkpoint otomatis lagi:** jangan cuma cek
+baris SEBELUM titik sisip, tapi juga baris SESUDAHNYA - konstruk `do-while`,
+`if-else`, `try-catch-finally` semua rawan kena kalau checkpoint nyempil di
+"sambungan" antar bagian yang secara sintaks masih 1 statement/blok utuh.
+
+**Simplifikasi `LoadingControl` (spinner loading):** user tanya apa animasi
+loading yang tampil selama compile bisa "dibungkus thread" biar tidak berat.
+Diklarifikasi: animasi `KyurutoDialogTextLoader` (teks dialog karakter)
+SUDAH jalan di background (`Task.Run`, fire-and-forget) sejak awal - bukan
+itu yang berat. Yang dimaksud kemungkinan animasi WPF Storyboard di
+`Controls/LoadingControl.xaml` (spinner 2 gambar berputar+scaling,
+`RepeatBehavior="Forever"`, ini SUMBER dari `NullReferenceException` di
+`TimeIntervalCollection`/`ClockGroup` yang muncul di `crash_log.txt` sesi
+sebelumnya - sudah diredam otomatis oleh self-heal 6d, tapi tetap ada
+overhead render terus-menerus). WPF Storyboard **tidak bisa dipindah ke
+thread lain** (nempel ke UI dispatcher WPF, batasan arsitektur, bukan
+sesuatu yang bisa di-workaround dengan `Thread`/`Task`). Yang bisa
+dilakukan: **ringankan** animasinya. `DropShadowEffect` (`Effect=`) di
+kedua `<Image>` spinner **dihapus** - itu bagian paling mahal (butuh render
+pass ekstra tiap frame utk soft-glow, meski dengan `SoftwareOnly` rendering
+tetap makan CPU). Storyboard rotate+scale-nya sendiri tidak diubah
+(dampak visual minimal kalau dihapus total, dan bukan yang paling mahal).
+
+## 6m. Zona crash dipersempit drastis: cluster 25-32× `.OpenFile()` beruntun
+
+`compile_progress.log` terbaru (dengan checkpoint granular 6j+6l yang sudah
+benar) **masih berhenti** persis di `"NSC: selesai InstallModdingAPI"` -
+TIDAK ADA checkpoint granular berikutnya (`progress line~1872`) yang
+sempat tercatat. Ini kabar BAGUS untuk diagnosis: artinya crash terjadi
+**sangat cepat**, dalam rentang ~150 baris pertama setelah
+`InstallModdingAPI`, bukan di tengah proses panjang seperti dugaan
+sebelumnya.
+
+**Isi zona itu (baris ~1723-1872, NSC):** ~40 baris deklarasi path (aman,
+cuma `Path.Combine` string), lalu **25× `.OpenFile()`/`.OpenFiles()`** dan
+1× `File.ReadAllBytes()` beruntun tanpa jeda - masing-masing membuka &
+mem-parsing 1 file `.xfbin` vanilla (characode, duelPlayerParam,
+playerSettingParam, skillCustomizeParam, dst - hampir semua "vanilla file
+editors" dibuka sekaligus di awal compile). **Pemanggilan `.OpenFile()` ini
+kemungkinan besar masuk ke `XFBIN_LIB.dll`** (binary pihak ketiga, closed-
+source, yang selama ini jadi dependency yang tidak bisa kita audit/ubah
+langsung - lihat bagian 4 & 6j) untuk parsing struktur chunk XFBIN.
+
+**Fix:** checkpoint disisip SETELAH **SETIAP SATU** `.OpenFile()`/
+`.OpenFiles()`/`File.ReadAllBytes()` di zona ini - **32 titik untuk NSC**,
+**28 titik untuk NS4** (blok yang sama, dicek & ditambah sekalian meski
+belum ada bukti crash NS4). Total checkpoint sekarang: **120**. Kalau nanti
+crash lagi, baris terakhir compile_progress.log akan bunyi persis
+`"NSC: selesai OpenFile - <nama_variable>"` - itu artinya file XFBIN
+SETELAHNYA (yang belum sempat tercatat "selesai") yang bikin crash.
+
+**Sengaja TIDAK mengubah apapun lagi selain checkpoint** di sesi ini (walau
+user bilang animasi/UI boleh dikorbankan demi stabilitas) - supaya hasil
+test berikutnya SIGNIFIKAN buat 1 pertanyaan spesifik ("file mana yang
+crash"), bukan tercampur dengan perubahan lain yang bisa mengaburkan
+kesimpulan. Simplifikasi/penghapusan animasi `LoadingControl` lebih lanjut
+(di luar yang sudah dilakukan di 6l) tetap jadi opsi mudah untuk sesi
+berikutnya begitu titik crash sebenarnya sudah ketemu pasti.
+
+**⚠️ Kalau XFBIN_LIB.dll terbukti jadi biang kerok:** ini akan jadi masalah
+yang GENUINELY sulit diperbaiki dari sisi app kita (binary pihak ketiga,
+tidak ada source yang cocok - lihat bagian 4). Opsi realistis kalau sampai
+ke titik itu: (a) coba cari versi `XFBIN_LIB.dll` LAIN yang mungkin lebih
+kompatibel, (b) tulis ulang bagian parsing yang crash pakai C# murni
+berdasarkan spesifikasi format XFBIN (butuh riset format-nya), atau
+(c) skip/lewati param file spesifik yang bermasalah kalau ternyata cuma 1-2
+file tertentu yang trigger (bukan semua .xfbin).
+
 ## 7. Audit tambahan (belum tentu ada di crash log, ditemukan lewat code review)
 
 - **7× `CommonOpenFileDialog`** (folder picker gaya Vista, `Microsoft.WindowsAPICodePack.Dialogs`,
@@ -742,173 +864,3 @@ penanganan dengan kalau crash-nya di antara dua checkpoint compile biasa
    (biar tidak over-engineering).
 5. Kalau dapat source `XFBIN_LIB` yang benar (ada `FindChunks` dkk), ikuti
    panduan di bagian 4 untuk switch balik dari `.dll` prebuilt ke source.
-
-## 6k. Crash baru (native, single AV) - GAP checkpoint 2500 baris, ditambah checkpoint per-mod
-
-User kirim `compile_progress.log` + log Wine/box64 baru. **Baris terakhir**
-di `compile_progress.log`: `NSC: selesai InstallModdingAPI` (10:13:41.037).
-Crash di log Wine terjadi 14 detik kemudian (10:13:55), thread `011c` (thread
-UI/compile utama), `EXCEPTION_ACCESS_VIOLATION` (code=c0000005) — **tapi kali
-ini BEDA pola** dari 6i:
-- **Hanya 1 AV** (muncul 2× di log karena dispatch ulang antara konteks
-  64-bit→wow64/32-bit untuk exception YANG SAMA, bukan 2 AV terpisah),
-  bukan "beruntun" 4× seperti 6i.
-- **TIDAK ADA** baris `OutputDebugStringW L"CLR: Managed code called
-  FailFast."` yang jadi tanda tangan pasti StackOverflow di 6i. Cuma ada
-  `RaiseFailFastException (...) stub` biasa - ini muncul di HAMPIR SEMUA
-  native crash CLR, bukan bukti khusus stack overflow.
-- Thread `011c` **sunyi 23 detik** (10:13:32 → 10:13:55) tanpa log Wine sama
-  sekali sebelum crash - normal untuk kerja CPU-bound murni di kode managed
-  (Wine cuma logging syscall/win32 API, bukan instruksi C# biasa), TAPI ini
-  juga berarti kita tidak Dapat clue "modul apa yang lagi dimuat" seperti
-  kasus 6e/6g/6h.
-
-**Kesimpulan penting: kemungkinan ini BUKAN crash yang sama dengan yang sudah**
-**diperbaiki di 6i.** Fix stack 64MB (6i) membungkus **SELURUH**
-`bw_CompileModProcess_NSC`/`_NS4` (dari checkpoint `"NSC: mulai"` sampai
-`"NSC: SELESAI - mods ready"`), jadi kalaupun teori stack overflow 6i benar
-dan sudah membantu di titik lain, titik crash KALI INI ada di **gap 2500
-baris tanpa checkpoint** antara `"NSC: selesai InstallModdingAPI"` (baris
-~1722) dan `"NSC: mulai extract CPK"` (baris ~4283 sebelum sesi ini) — gap
-ini isinya `foreach` per-mod (**Compile Character mods** → **Compile Stage
-Mods** → **Compile Model mods** → **Compile Team Ultimate Jutsu Mods**),
-BUKAN pemanggilan `XFBIN_LIB.dll` sama sekali (sudah di-grep, nol hasil di
-gap ini) - jadi teori "rekursi XFBIN_LIB" di 6i kemungkinan tidak relevan
-untuk titik crash spesifik ini.
-
-**Fix (LOW RISK, cuma nambah logging, TIDAK ubah logika apapun):** ditambah
-**8 checkpoint per-iterasi** (1 baris per titik, taruh persis di baris
-pertama badan `foreach`, pola sama seperti checkpoint yang sudah ada) -
-paralel di NSC & NS4:
-- `foreach (CharacterModModel character_mod in CharacterList)` → log
-  `"NSC/NS4: char_mod={character_mod.Characode}"`
-- `foreach (StageModModel stage_mod in StageList)` → log
-  `"NSC/NS4: stage_mod={stage_mod.StageName}"`
-- `foreach (CostumeModModel costume_mod in CostumeList)` (bagian "Compile
-  Model mods") → log `"NSC/NS4: model_mod(costume)={costume_mod.Characode}"`
-- `foreach (TeamUltimateJutsuModModel tuj_mod in TUJList)` → log
-  `"NSC/NS4: tuj_mod={tuj_mod.Label}"`
-
-Lokasi persis (`NSC-ModManager/ViewModel/TitleViewModel.cs`, setelah edit
-sesi ini): baris ~1900, ~3462, ~3584, ~3968 (NSC) dan ~5053, ~6457, ~6611,
-~6979 (NS4).
-
-**Kenapa ini prioritas #1 dibanding lanjut nebak (SIMD? stack lagi?
-XFBIN_LIB lagi?):** tanpa checkpoint di gap ini, **TIDAK MUNGKIN** tahu
-mod/karakter/stage SPESIFIK mana yang lagi diproses pas crash - bisa jadi
-memang stack overflow (kalau user punya BANYAK character mod terpasang,
-apalagi kalau crash konsisten SELALU di sekitar mod ke-N yang sama), bisa
-juga bug beda total di satu mod tertentu (misal file `.xfbin` korup/rusak
-di salah satu mod yang bikin native crash pas dibaca). Checkpoint granular
-ini akan LANGSUNG menjawab pertanyaan itu di log berikutnya tanpa
-tebak-tebakan.
-
-**⚠️ Kalau masih crash setelah ini (WAJIB dibaca sebelum lanjut sesi
-berikutnya):**
-1. **Minta `compile_progress.log` BARU** (bukan yang lama) - baris
-   terakhir sekarang akan berupa `"NSC: char_mod=XXX"` / `"NSC:
-   stage_mod=XXX"` dll, bukan cuma `"selesai InstallModdingAPI"` lagi.
-2. **Kalau baris terakhir SELALU mod yang SAMA** di run-run berikutnya →
-   kemungkinan besar file mod itu sendiri korup/format tidak terduga
-   (misal `.xfbin` yang salah struktur bikin `BinaryReader`/parsing baca
-   di luar asumsi format, walau ada `EnsureRange` guard di
-   `BinaryReader.cs` yang harusnya lempar `ArgumentOutOfRangeException`
-   terkelola, bukan AV native - JADI kalau memang mod ini biang keroknya,
-   crash-nya kemungkinan bukan dari situ, lihat poin 3). Minta user coba
-   tanpa mod itu (uninstall sementara) untuk konfirmasi.
-3. **Kalau baris terakhir BEDA-BEDA tiap run** (kadang char_mod A, kadang
-   stage_mod B) → mendukung balik teori **stack overflow kumulatif** (total
-   kerja/kedalaman call stack numpuk sampai titik acak tergantung urutan
-   mod terpasang) - naikkan stack `compileThread` di `bw_CompileModProcess`
-   dari 64MB → 128MB atau 256MB (baris ~1052, parameter kedua constructor
-   `Thread`).
-4. **Kalau crash selalu tepat SETELAH loop `char_mod`/`stage_mod`/dst
-   TERAKHIR selesai** (semua checkpoint per-item lengkap, tapi checkpoint
-   antar-blok besar berikutnya - "mulai extract CPK" dll - tidak pernah
-   tercapai) → titik curiga bergeser ke kode DI ANTARA blok-blok besar itu
-   (bukan di dalam loop manapun) - baca ulang kode `TitleViewModel.cs` di
-   sekitar baris akhir loop terkait.
-
-## 6l. ROOT CAUSE ditemukan: WPF Animation Storyboard "Forever" + cross-thread UI update saat compile
-
-Log baru (`compile_progress.log` + `wine_wfm_2026-07-20_14-10-16.txt` +
-`box64_wfm...txt` + `crash_log.txt`) dari run dengan **cuma 1 mod
-terpasang**. `compile_progress.log` berhenti persis di
-`"NSC: selesai InstallModdingAPI"` (14:13:22.593) - **belum sempat masuk**
-checkpoint per-mod baru dari 6k sama sekali. Artinya crash terjadi SEBELUM
-loop `foreach` mod manapun jalan.
-
-**`crash_log.txt` kasih clue emas** (self-heal log framework-internal
-failure #1, sebelum akhirnya native crash beneran):
-```
-System.NullReferenceException: Object reference not set to an instance of an object.
-   at System.Windows.Media.Animation.TimeIntervalCollection.ProjectOntoPeriodicFunction(...)
-   at System.Windows.Media.Animation.ClockGroup.ComputeCurrentIntervals(...)
-   at System.Windows.Media.Animation.Clock.ComputeEvents(...)
-   ... MediaContext.RenderMessageHandlerCore -> TimeManager.Tick()
-```
-Ini WPF Animation Clock system (jalan tiap frame render). Log Wine
-konfirmasi: AV kali ini (`info[1]=00000004` - baca alamat SANGAT dekat
-NULL, pola null-deref klasik) terjadi di kode JIT tanpa nama modul, 15
-detik setelah `InstallModdingAPI`, PAS thread `0194` selesai load
-`System.Runtime.Intrinsics.dll`/`mscoree.dll` - artinya kerjaan GC/JIT lain
-lagi jalan bersamaan dengan animation clock yang lagi tick terus-menerus.
-
-**Ketemu 2 penyebab konkret, keduanya aktif SELAMA compile berlangsung**
-(karena `LoadingStatePlay = Visibility.Visible` di-set SEBELUM compile
-mulai, baris ~1665, dan baru `Hidden` lagi setelah compile SELESAI):
-
-1. **`Controls/KuramaControl.xaml`** - 3 `Style.Triggers` (IsEnabled=True)
-   masing-masing `BeginStoryboard` → `DoubleAnimation` dengan
-   `RepeatBehavior="Forever"` + `AutoReverse="True"` pada
-   `RenderTransform.Angle` (goyang ekor Kurama). Kombinasi
-   Forever+AutoReverse ini PERSIS yang manggil
-   `ProjectOntoPeriodicFunction` di stack trace crash. Animasi ini jalan
-   TERUS-MENERUS selama compile (bisa puluhan detik - menitan kalau mod
-   banyak), artinya method WPF yang rapuh ini dipanggil RIBUAN kali per
-   compile. `Controls/LoadingControl.xaml` PUNYA POLA SAMA (8×
-   `DoubleAnimationUsingKeyFrames` dengan `RepeatBehavior="Forever"`,
-   sebagian `AutoReverse="True"`) - **belum disentuh sesi ini**, jadi kalau
-   masih crash setelah fix di bawah, INI kandidat berikutnya.
-
-2. **`KyurutoDialogTextWork`** (`TitleViewModel.cs`, dipanggil dari
-   `KyurutoDialogTextLoader` yang dipanggil berkali-kali selama compile,
-   termasuk PERSIS setelah checkpoint `InstallModdingAPI` di baris 1724:
-   `KyurutoDialogTextLoader("Preparing all files!", 20)`) - method ini jalan
-   di background thread (`Task.Run`) tapi **memutasi `KuramaDialog` (bound
-   ke UI/TextBlock) LANGSUNG tanpa `Dispatcher.Invoke`** - pelanggaran
-   cross-thread WPF klasik. Kemungkinan besar inilah pemicu awal
-   ketidakstabilan Animation Clock (karena text-change memicu layout pass
-   dari thread yang salah, DI TENGAH animasi Kurama yang lagi tick).
-
-**Fix yang sudah diterapkan (LOW RISK, hasil visual identik, cuma "mesin"**
-**animasinya diganti):**
-- `KyurutoDialogTextWork`: semua baca/tulis `KuramaDialog` sekarang lewat
-  `Dispatcher.Invoke` (pola sama seperti `HandleError()` yang sudah ada).
-  Logika "auto-cancel kalau ada panggilan baru yang menimpa" dipertahankan
-  persis (masih baca-balik `KuramaDialog` untuk cek konsistensi).
-- `Controls/KuramaControl.xaml`: 3 `Style.Triggers`+`Storyboard` dihapus
-  total dari XAML.
-- `Controls/KuramaControl.xaml.cs`: ditambah `DispatcherTimer` (~30fps)
-  yang menggerakkan `RotateTransform.Angle` tiap ekor secara manual, dengan
-  From/To/Duration/AccelerationRatio/DecelerationRatio **PERSIS SAMA**
-  dengan Storyboard lama (cuma di-hitung manual pakai kurva ease
-  kuadratik, bukan lewat WPF Clock). Timer start di `Loaded`, stop di
-  `Unloaded` (jaga-jaga memory/CPU leak kalau control dibuka-tutup
-  berkali-kali).
-
-**⚠️ Kalau MASIH crash setelah ini (baca sebelum sesi berikutnya):**
-1. Minta `compile_progress.log` + log Wine/box64/`crash_log.txt` yang
-   BARU. Kalau `crash_log.txt` masih nunjukin
-   `System.Windows.Media.Animation.*` di stack trace → fix di atas belum
-   cukup, LANJUT ke `Controls/LoadingControl.xaml` (kandidat #1 berikutnya,
-   pola Forever+AutoReverse yang sama, lebih kompleks karena animasi
-   multi-property/keyframe - butuh rewrite DispatcherTimer yang lebih
-   hati-hati).
-2. Kalau `crash_log.txt` menunjukkan jenis exception BEDA sama sekali
-   (bukan `System.Windows.Media.Animation.*`) → berarti dugaan animasi ini
-   sudah kesolve, cari clue baru dari stack trace yang muncul.
-3. Cek juga apakah `compile_progress.log` sekarang berhasil lewat
-   checkpoint `InstallModdingAPI` dan masuk ke checkpoint per-mod dari 6k
-   (`char_mod=...` dst) - kalau iya, berarti sudah maju lebih jauh dari
-   sebelumnya walau belum 100% solved, progress positif.

@@ -1783,80 +1783,112 @@ namespace NSC_ModManager.ViewModel
                 //vanilla file editors
                 CharacodeEditorViewModel characode_vanilla = new CharacodeEditorViewModel();
                 characode_vanilla.OpenFile(characodePath);
+                CompileCheckpoint("NSC: selesai OpenFile - characode_vanilla");
                 DuelPlayerParamEditorViewModel duelPlayerParam_vanilla = new DuelPlayerParamEditorViewModel();
                 duelPlayerParam_vanilla.OpenFile(duelPlayerParamPath);
+                CompileCheckpoint("NSC: selesai OpenFile - duelPlayerParam_vanilla");
                 PlayerSettingParamViewModel playerSettingParam_vanilla = new PlayerSettingParamViewModel();
                 playerSettingParam_vanilla.OpenFile(playerSettingParamPath);
+                CompileCheckpoint("NSC: selesai OpenFile - playerSettingParam_vanilla");
                 SkillCustomizeParamViewModel skillCustomizeParam_vanilla = new SkillCustomizeParamViewModel();
                 skillCustomizeParam_vanilla.OpenFile(skillCustomizeParamPath);
+                CompileCheckpoint("NSC: selesai OpenFile - skillCustomizeParam_vanilla");
                 SpSkillCustomizeParamViewModel spSkillCustomizeParam_vanilla = new SpSkillCustomizeParamViewModel();
                 spSkillCustomizeParam_vanilla.OpenFile(spSkillCustomizeParamPath);
+                CompileCheckpoint("NSC: selesai OpenFile - spSkillCustomizeParam_vanilla");
                 SkillIndexSettingParamViewModel skillIndexSettingParam_vanilla = new SkillIndexSettingParamViewModel();
                 skillIndexSettingParam_vanilla.OpenFile(skillIndexSettingParamPath);
+                CompileCheckpoint("NSC: selesai OpenFile - skillIndexSettingParam_vanilla");
                 SupportSkillRecoverySpeedParamViewModel supportSkillRecoverySpeedParam_vanilla = new SupportSkillRecoverySpeedParamViewModel();
                 supportSkillRecoverySpeedParam_vanilla.OpenFile(supportSkillRecoverySpeedParamPath);
+                CompileCheckpoint("NSC: selesai OpenFile - supportSkillRecoverySpeedParam_vanilla");
                 PrivateCameraViewModel privateCamera_vanilla = new PrivateCameraViewModel();
                 privateCamera_vanilla.OpenFile(privateCameraPath);
+                CompileCheckpoint("NSC: selesai OpenFile - privateCamera_vanilla");
                 CharacterSelectParamViewModel characterSelectParam_vanilla = new CharacterSelectParamViewModel();
                 characterSelectParam_vanilla.OpenFile(characterSelectParamPath);
+                CompileCheckpoint("NSC: selesai OpenFile - characterSelectParam_vanilla");
 
                 CostumeBreakColorParamViewModel costumeBreakColorParam_vanilla = new CostumeBreakColorParamViewModel();
                 costumeBreakColorParam_vanilla.OpenFile(costumeBreakColorParamPath);
+                CompileCheckpoint("NSC: selesai OpenFile - costumeBreakColorParam_vanilla");
 
                 CostumeParamViewModel costumeParam_vanilla = new CostumeParamViewModel();
                 costumeParam_vanilla.OpenFile(costumeParamPath);
+                CompileCheckpoint("NSC: selesai OpenFile - costumeParam_vanilla");
                 PlayerIconViewModel playerIcon_vanilla = new PlayerIconViewModel();
                 playerIcon_vanilla.OpenFile(playerIconPath);
+                CompileCheckpoint("NSC: selesai OpenFile - playerIcon_vanilla");
                 cmnparamViewModel cmnparam_vanilla = new cmnparamViewModel();
                 cmnparam_vanilla.OpenFile(cmnparamPath);
+                CompileCheckpoint("NSC: selesai OpenFile - cmnparam_vanilla");
                 SupportActionParamViewModel supportActionParam_vanilla = new SupportActionParamViewModel();
                 supportActionParam_vanilla.OpenFile(supportActionParamPath);
+                CompileCheckpoint("NSC: selesai OpenFile - supportActionParam_vanilla");
                 AwakeAuraViewModel awakeAura_vanilla = new AwakeAuraViewModel();
                 awakeAura_vanilla.OpenFile(awakeAuraPath);
+                CompileCheckpoint("NSC: selesai OpenFile - awakeAura_vanilla");
                 AppearanceAnmViewModel appearanceAnm_vanilla = new AppearanceAnmViewModel();
                 appearanceAnm_vanilla.OpenFile(appearanceAnmPath);
+                CompileCheckpoint("NSC: selesai OpenFile - appearanceAnm_vanilla");
                 AfterAttachObjectViewModel afterAttachObject_vanilla = new AfterAttachObjectViewModel();
                 afterAttachObject_vanilla.OpenFile(afterAttachObjectPath);
+                CompileCheckpoint("NSC: selesai OpenFile - afterAttachObject_vanilla");
                 PlayerDoubleEffectParamViewModel playerDoubleEffectParam_vanilla = new PlayerDoubleEffectParamViewModel();
                 playerDoubleEffectParam_vanilla.OpenFile(playerDoubleEffectParamPath);
+                CompileCheckpoint("NSC: selesai OpenFile - playerDoubleEffectParam_vanilla");
                 SpTypeSupportParamViewModel spTypeSupportParam_vanilla = new SpTypeSupportParamViewModel();
                 spTypeSupportParam_vanilla.OpenFile(spTypeSupportParamPath);
+                CompileCheckpoint("NSC: selesai OpenFile - spTypeSupportParam_vanilla");
                 CostumeBreakParamViewModel costumeBreakParam_vanilla = new CostumeBreakParamViewModel();
                 costumeBreakParam_vanilla.OpenFile(costumeBreakParamPath);
+                CompileCheckpoint("NSC: selesai OpenFile - costumeBreakParam_vanilla");
                 MessageInfoViewModel messageInfo_vanilla = new MessageInfoViewModel();
                 messageInfo_vanilla.OpenFiles(messageInfoPath);
+                CompileCheckpoint("NSC: selesai OpenFile - messageInfo_vanilla");
                 DamageEffViewModel damageeff_vanilla = new DamageEffViewModel();
                 damageeff_vanilla.OpenFile(damageeffPath);
+                CompileCheckpoint("NSC: selesai OpenFile - damageeff_vanilla");
                 DamageEffViewModel damageeffS4_vanilla = new DamageEffViewModel();
                 damageeffS4_vanilla.OpenFile(damageeffS4Path);
+                CompileCheckpoint("NSC: selesai OpenFile - damageeffS4_vanilla");
                 EffectPrmViewModel effectprm_vanilla = new EffectPrmViewModel();
                 effectprm_vanilla.OpenFile(effectprmPath);
+                CompileCheckpoint("NSC: selesai OpenFile - effectprm_vanilla");
                 DamagePrmViewModel damageprm_vanilla = new DamagePrmViewModel();
                 damageprm_vanilla.OpenFile(damageprmPath);
+                CompileCheckpoint("NSC: selesai OpenFile - damageprm_vanilla");
 
                 StageInfoViewModel stageInfo_vanilla = new StageInfoViewModel();
                 stageInfo_vanilla.OpenFile(stageInfoPath);
+                CompileCheckpoint("NSC: selesai OpenFile - stageInfo_vanilla");
 
 
                 ConditionPrmViewModel conditionprm_vanilla = new ConditionPrmViewModel();
                 conditionprm_vanilla.OpenFile(conditionprmPath);
+                CompileCheckpoint("NSC: selesai OpenFile - conditionprm_vanilla");
 
                 ConditionManagerViewModel conditionprmManager_vanilla = new ConditionManagerViewModel();
                 conditionprmManager_vanilla.OpenFile(conditionprmManagerPath);
+                CompileCheckpoint("NSC: selesai OpenFile - conditionprmManager_vanilla");
 
 
                 //TUJ Vanilla Files
                 PairSpSkillCombinationParamViewModel pairSpSkillComb_vanilla = new PairSpSkillCombinationParamViewModel();
                 pairSpSkillComb_vanilla.OpenFile(pairSpSkillCombinationParam);
+                CompileCheckpoint("NSC: selesai OpenFile - pairSpSkillComb_vanilla");
                 byte[] pairManagerParam_vanilla = File.ReadAllBytes(pairSpSkillManagerParamPath);
+                CompileCheckpoint("NSC: selesai OpenFile - pairManagerParam_vanilla");
 
                 SpecialInteractionManagerViewModel specialInteraction_vanilla = new SpecialInteractionManagerViewModel();
                 specialInteraction_vanilla.OpenFile(specialInteractionPath);
+                CompileCheckpoint("NSC: selesai OpenFile - specialInteraction_vanilla");
 
 
 
                 GuardEffectParamViewModel guardEffectParam_vanilla = new GuardEffectParamViewModel();
                 guardEffectParam_vanilla.OpenFile(guardEffectParamPath);
+                CompileCheckpoint("NSC: selesai OpenFile - guardEffectParam_vanilla");
 
                 if (!File.Exists(specialCondParamPath))
                 {
@@ -1870,6 +1902,7 @@ namespace NSC_ModManager.ViewModel
                 {
                     throw new FileNotFoundException($"File not found: {susanooCondParamPath}");
                 }
+                CompileCheckpoint("NSC: progress line~1872");
                 if (!File.Exists(specialInteractionPath))
                 {
                     throw new FileNotFoundException($"File not found: {specialInteractionPath}");
@@ -1897,7 +1930,6 @@ namespace NSC_ModManager.ViewModel
                 //Compile Character mods
                 foreach (CharacterModModel character_mod in CharacterList)
                 {
-                    CompileCheckpoint($"NSC: char_mod={character_mod.Characode}");
                     string mod_characode = character_mod.Characode;
                     int mod_characodeID = -1;
                     bool replace_character = false;
@@ -2021,6 +2053,7 @@ namespace NSC_ModManager.ViewModel
                                 if (duelPlayerParam_vanilla.DuelPlayerParamList[i].BinName.Contains(mod_characode))
                                 {
                                     duelPlayerParam_vanilla.DuelPlayerParamList[i] = (DuelPlayerParamModel)duelPlayerParam_mod.DuelPlayerParamList[0].Clone();
+                CompileCheckpoint("NSC: progress line~2022");
                                     break;
                                 }
                             }
@@ -2321,6 +2354,7 @@ namespace NSC_ModManager.ViewModel
                                             }
                                         }
                                         //Add new entries
+                CompileCheckpoint("NSC: progress line~2322");
                                         for (int i = 0; i < costumeBreakColorParam_mod.CostumeBreakColorParamList.Count; i++)
                                         {
                                             CostumeBreakColorParamModel costumeColor_entry = (CostumeBreakColorParamModel)costumeBreakColorParam_mod.CostumeBreakColorParamList[i].Clone();
@@ -2471,6 +2505,7 @@ namespace NSC_ModManager.ViewModel
                                 //costume_entry.EntryIndex = costumeParam_vanilla.LastEntry();
                                 costume_entry.EntryIndex = 0; //used for unlocking
                                 costumeParam_vanilla.CostumeParamList.Add(costume_entry);
+                CompileCheckpoint("NSC: progress line~2472");
                             }
                         }
                     }
@@ -2621,6 +2656,7 @@ namespace NSC_ModManager.ViewModel
                         {
                             PrivateCameraModel privateCameraEntry = new PrivateCameraModel();
                             privateCameraEntry.CharacodeIndex = mod_characodeID;
+                CompileCheckpoint("NSC: progress line~2622");
                             privateCameraEntry.Unk1 = -1;
                             privateCameraEntry.Unk2 = -1;
                             privateCameraEntry.FOV = -1;
@@ -2771,6 +2807,7 @@ namespace NSC_ModManager.ViewModel
                                                     slot = 1;
                                                 }
                                                 cfgPage = page;
+                CompileCheckpoint("NSC: progress line~2772");
                                                 cfgSlot = slot;
                                                 cfgCostume = i;
                                             }
@@ -2921,6 +2958,7 @@ namespace NSC_ModManager.ViewModel
                                         }
                                         for (int i = 0; i < characterSelectParamS4_mod.CharacterSelectParamList.Count; i++)
                                         {
+                CompileCheckpoint("NSC: progress line~2922");
                                             CharacterSelectParamModel csp_entry = (CharacterSelectParamModel)characterSelectParamS4_mod.CharacterSelectParamList[i].Clone();
 
                                             int cfgPage = -1;
@@ -3071,6 +3109,7 @@ namespace NSC_ModManager.ViewModel
                                             csp_entry.CharselValues.P1_customization_light_x = (float)18.649999618530273;
                                             csp_entry.CharselValues.P1_customization_light_y = (float)68.86000061035156;
                                             csp_entry.CharselValues.P1_customization_light_z = (float)0.38999998569488525;
+                CompileCheckpoint("NSC: progress line~3072");
                                             csp_entry.CharselValues.P2_customization_pos_x = (float)76.17376708984375;
                                             csp_entry.CharselValues.P2_customization_pos_y = (float)360.3885498046875;
                                             csp_entry.CharselValues.P2_customization_pos_z = (float)-285.6630859375;
@@ -3221,6 +3260,7 @@ namespace NSC_ModManager.ViewModel
                                 break;
                             }
                         }
+                CompileCheckpoint("NSC: progress line~3222");
                         SpTypeSupportParamModel spTypeSupportParamEntry = (SpTypeSupportParamModel)spTypeSupportParam_mod.SpTypeSupportParamList[0].Clone();
                         spTypeSupportParamEntry.CharacodeID = mod_characodeID;
                         spTypeSupportParam_vanilla.SpTypeSupportParamList.Add(spTypeSupportParamEntry);
@@ -3371,6 +3411,7 @@ namespace NSC_ModManager.ViewModel
                                     }
                                 }
                                 // если oldIndex вне диапазона — не трогаем
+                CompileCheckpoint("NSC: progress line~3372");
                             }
 
                             damageprm_vanilla.DamagePrmList.Add(entry);
@@ -3459,7 +3500,6 @@ namespace NSC_ModManager.ViewModel
 
                 foreach (StageModModel stage_mod in StageList)
                 {
-                    CompileCheckpoint($"NSC: stage_mod={stage_mod.StageName}");
 
                     string stormVersion = stage_mod.GameVersion;
                     string messageInfoModPath = Path.Combine(stage_mod.RootPath, "data", "message");
@@ -3522,6 +3562,7 @@ namespace NSC_ModManager.ViewModel
                     //messageInfo files
                     MessageInfoViewModel messageInfo_mod = new MessageInfoViewModel();
                     MessageInfoS4ViewModel messageInfoS4_mod = new MessageInfoS4ViewModel();
+                CompileCheckpoint("NSC: progress line~3522");
                     if (Directory.Exists(messageInfoModPath))
                     {
                         switch (stormVersion)
@@ -3581,7 +3622,6 @@ namespace NSC_ModManager.ViewModel
                 //Compile Model mods
                 foreach (CostumeModModel costume_mod in CostumeList)
                 {
-                    CompileCheckpoint($"NSC: model_mod(costume)={costume_mod.Characode}");
                     string mod_characode = costume_mod.Characode;
                     string stormVersion = costume_mod.GameVersion;
                     int mod_characodeID = -1;
@@ -3674,6 +3714,7 @@ namespace NSC_ModManager.ViewModel
                                     costume_csp_code = psp_entry.PSP_code + "_" + csp_code_index.ToString("D6");
                                 }
                                 while (playerSettingParam_vanilla.PSPCodeExists(costume_csp_code));
+                                CompileCheckpoint("NSC: progress line~3672");
                                 psp_entry.PSP_code = costume_csp_code;
                                 psp_entry.CharacodeID = mod_characodeID;
                                 psp_entry.PSP_ID = playerSettingParam_vanilla.MaxSlot() + 1;
@@ -3823,6 +3864,7 @@ namespace NSC_ModManager.ViewModel
                                     {
                                         page = characterSelectParam_vanilla.CharacterSelectParamList[i].PageIndex;
                                         slot = characterSelectParam_vanilla.CharacterSelectParamList[i].SlotIndex;
+                CompileCheckpoint("NSC: progress line~3822");
                                         break;
                                     }
                                 }
@@ -3965,7 +4007,6 @@ namespace NSC_ModManager.ViewModel
                 //Compile Team Ultimate Jutsu Mods
                 foreach (TeamUltimateJutsuModModel tuj_mod in TUJList)
                 {
-                    CompileCheckpoint($"NSC: tuj_mod={tuj_mod.Label}");
                     string cmnparamModPath = Path.Combine(tuj_mod.RootPath, "data", "sound", "cmnparam.xfbin");
                     string messageInfoModPath = Path.Combine(tuj_mod.RootPath, "data", "message");
 
@@ -3974,6 +4015,7 @@ namespace NSC_ModManager.ViewModel
 
 
                     string mod_tuj = tuj_mod.Label;
+                CompileCheckpoint("NSC: progress line~3972");
                     int mod_tuj_id = -1;
                     bool replace_tuj = false;
 
@@ -4124,6 +4166,7 @@ namespace NSC_ModManager.ViewModel
                         PairSpSkillCombinationParamModel existingPairSpCombEntry = pairSpSkillComb_vanilla.pairSpSkillList.FirstOrDefault(entry => entry.TUJ_ID == mod_tuj_id);
                         int tuj_index = pairSpSkillComb_vanilla.pairSpSkillList.IndexOf(existingPairSpCombEntry);
                         pairSpSkillComb_vanilla.pairSpSkillList[tuj_index] = pairSpSkillCombEntry;
+                CompileCheckpoint("NSC: progress line~4122");
 
                         //---------------------------------- Cmn Param ---------------------------------------------------------------------------------------------
                         if (File.Exists(cmnparamModPath))
@@ -4274,6 +4317,7 @@ namespace NSC_ModManager.ViewModel
                         nuccMaterialFile = BinaryReader.b_ReplaceBytes(nuccMaterialFile, BitConverter.GetBytes((short)ShaderCount), 0x0E, 0); //Replacing byte of shader's count
                         nuccMaterialFile = BinaryReader.b_ReplaceBytes(nuccMaterialFile, BitConverter.GetBytes(nuccMaterialFile.Length), 0x04, 0); //Replacing size bytes of nuccMaterial_dx11 file
 
+                CompileCheckpoint("NSC: progress line~4272");
                         FileInfo[] cpkList = mod_d.GetFiles("*.cpk", SearchOption.AllDirectories);
 
                         Array.Sort(cpkList, (x, y) =>
@@ -4938,78 +4982,106 @@ namespace NSC_ModManager.ViewModel
                 //vanilla file editors
                 CharacodeEditorViewModel characode_vanilla = new CharacodeEditorViewModel();
                 characode_vanilla.OpenFile(characodePath);
+                CompileCheckpoint("NS4: selesai OpenFile - characode_vanilla");
                 DuelPlayerParamEditorViewModel duelPlayerParam_vanilla = new DuelPlayerParamEditorViewModel();
                 duelPlayerParam_vanilla.OpenFile(duelPlayerParamPath);
+                CompileCheckpoint("NS4: selesai OpenFile - duelPlayerParam_vanilla");
                 PlayerSettingParamS4ViewModel playerSettingParam_vanilla = new PlayerSettingParamS4ViewModel();
                 playerSettingParam_vanilla.OpenFile(playerSettingParamPath);
+                CompileCheckpoint("NS4: selesai OpenFile - playerSettingParam_vanilla");
                 SkillCustomizeParamS4ViewModel skillCustomizeParam_vanilla = new SkillCustomizeParamS4ViewModel();
                 skillCustomizeParam_vanilla.OpenFile(skillCustomizeParamPath);
+                CompileCheckpoint("NS4: selesai OpenFile - skillCustomizeParam_vanilla");
                 SpSkillCustomizeParamViewModel spSkillCustomizeParam_vanilla = new SpSkillCustomizeParamViewModel();
                 spSkillCustomizeParam_vanilla.OpenFile(spSkillCustomizeParamPath);
+                CompileCheckpoint("NS4: selesai OpenFile - spSkillCustomizeParam_vanilla");
                 //SkillIndexSettingParamViewModel skillIndexSettingParam_vanilla = new SkillIndexSettingParamViewModel();
                 //skillIndexSettingParam_vanilla.OpenFile(skillIndexSettingParamPath);
                 //SupportSkillRecoverySpeedParamViewModel supportSkillRecoverySpeedParam_vanilla = new SupportSkillRecoverySpeedParamViewModel();
                 //supportSkillRecoverySpeedParam_vanilla.OpenFile(supportSkillRecoverySpeedParamPath);
                 PrivateCameraViewModel privateCamera_vanilla = new PrivateCameraViewModel();
                 privateCamera_vanilla.OpenFile(privateCameraPath);
+                CompileCheckpoint("NS4: selesai OpenFile - privateCamera_vanilla");
                 CharacterSelectParamS4ViewModel characterSelectParam_vanilla = new CharacterSelectParamS4ViewModel();
                 characterSelectParam_vanilla.OpenFile(characterSelectParamPath);
+                CompileCheckpoint("NS4: selesai OpenFile - characterSelectParam_vanilla");
 
                 CostumeBreakColorParamS4ViewModel costumeBreakColorParam_vanilla = new CostumeBreakColorParamS4ViewModel();
                 costumeBreakColorParam_vanilla.OpenFile(costumeBreakColorParamPath);
+                CompileCheckpoint("NS4: selesai OpenFile - costumeBreakColorParam_vanilla");
 
                 //CostumeParamViewModel costumeParam_vanilla = new CostumeParamViewModel();
                 //costumeParam_vanilla.OpenFile(costumeParamPath);
                 PlayerIconViewModel playerIcon_vanilla = new PlayerIconViewModel();
                 playerIcon_vanilla.OpenFile(playerIconPath);
+                CompileCheckpoint("NS4: selesai OpenFile - playerIcon_vanilla");
                 cmnparamViewModel cmnparam_vanilla = new cmnparamViewModel();
                 cmnparam_vanilla.OpenFile(cmnparamPath);
+                CompileCheckpoint("NS4: selesai OpenFile - cmnparam_vanilla");
                 SupportActionParamViewModel supportActionParam_vanilla = new SupportActionParamViewModel();
                 supportActionParam_vanilla.OpenFile(supportActionParamPath);
+                CompileCheckpoint("NS4: selesai OpenFile - supportActionParam_vanilla");
                 AwakeAuraViewModel awakeAura_vanilla = new AwakeAuraViewModel();
                 awakeAura_vanilla.OpenFile(awakeAuraPath);
+                CompileCheckpoint("NS4: selesai OpenFile - awakeAura_vanilla");
                 AppearanceAnmViewModel appearanceAnm_vanilla = new AppearanceAnmViewModel();
                 appearanceAnm_vanilla.OpenFile(appearanceAnmPath);
+                CompileCheckpoint("NS4: selesai OpenFile - appearanceAnm_vanilla");
                 AfterAttachObjectViewModel afterAttachObject_vanilla = new AfterAttachObjectViewModel();
                 afterAttachObject_vanilla.OpenFile(afterAttachObjectPath);
+                CompileCheckpoint("NS4: selesai OpenFile - afterAttachObject_vanilla");
                 PlayerDoubleEffectParamViewModel playerDoubleEffectParam_vanilla = new PlayerDoubleEffectParamViewModel();
                 playerDoubleEffectParam_vanilla.OpenFile(playerDoubleEffectParamPath);
+                CompileCheckpoint("NS4: selesai OpenFile - playerDoubleEffectParam_vanilla");
                 SpTypeSupportParamViewModel spTypeSupportParam_vanilla = new SpTypeSupportParamViewModel();
                 spTypeSupportParam_vanilla.OpenFile(spTypeSupportParamPath);
+                CompileCheckpoint("NS4: selesai OpenFile - spTypeSupportParam_vanilla");
                 CostumeBreakParamViewModel costumeBreakParam_vanilla = new CostumeBreakParamViewModel();
                 costumeBreakParam_vanilla.OpenFile(costumeBreakParamPath);
+                CompileCheckpoint("NS4: selesai OpenFile - costumeBreakParam_vanilla");
                 MessageInfoS4ViewModel messageInfo_vanilla = new MessageInfoS4ViewModel();
                 messageInfo_vanilla.OpenFiles(messageInfoPath);
+                CompileCheckpoint("NS4: selesai OpenFile - messageInfo_vanilla");
                 DamageEffViewModel damageeff_vanilla = new DamageEffViewModel();
                 damageeff_vanilla.OpenFile(damageeffPath);
+                CompileCheckpoint("NS4: selesai OpenFile - damageeff_vanilla");
                 EffectPrmViewModel effectprm_vanilla = new EffectPrmViewModel();
                 effectprm_vanilla.OpenFile(effectprmPath);
+                CompileCheckpoint("NS4: selesai OpenFile - effectprm_vanilla");
                 DamagePrmViewModel damageprm_vanilla = new DamagePrmViewModel();
                 damageprm_vanilla.OpenFile(damageprmPath);
+                CompileCheckpoint("NS4: selesai OpenFile - damageprm_vanilla");
 
                 StageInfoViewModel stageInfo_vanilla = new StageInfoViewModel();
                 stageInfo_vanilla.OpenFile(stageInfoPath);
+                CompileCheckpoint("NS4: selesai OpenFile - stageInfo_vanilla");
 
 
                 ConditionPrmViewModel conditionprm_vanilla = new ConditionPrmViewModel();
                 conditionprm_vanilla.OpenFile(conditionprmPath);
+                CompileCheckpoint("NS4: selesai OpenFile - conditionprm_vanilla");
 
                 ConditionManagerViewModel conditionprmManager_vanilla = new ConditionManagerViewModel();
                 conditionprmManager_vanilla.OpenFile(conditionprmManagerPath);
+                CompileCheckpoint("NS4: selesai OpenFile - conditionprmManager_vanilla");
 
 
                 //TUJ Vanilla Files
                 PairSpSkillCombinationParamViewModel pairSpSkillComb_vanilla = new PairSpSkillCombinationParamViewModel();
                 pairSpSkillComb_vanilla.OpenFile(pairSpSkillCombinationParam);
+                CompileCheckpoint("NS4: selesai OpenFile - pairSpSkillComb_vanilla");
                 byte[] pairManagerParam_vanilla = File.ReadAllBytes(pairSpSkillManagerParamPath);
+                CompileCheckpoint("NS4: selesai OpenFile - pairManagerParam_vanilla");
 
                 SpecialInteractionManagerViewModel specialInteraction_vanilla = new SpecialInteractionManagerViewModel();
                 specialInteraction_vanilla.OpenFile(specialInteractionPath);
+                CompileCheckpoint("NS4: selesai OpenFile - specialInteraction_vanilla");
 
 
 
                 GuardEffectParamViewModel guardEffectParam_vanilla = new GuardEffectParamViewModel();
                 guardEffectParam_vanilla.OpenFile(guardEffectParamPath);
+                CompileCheckpoint("NS4: selesai OpenFile - guardEffectParam_vanilla");
 
                 if (!File.Exists(specialCondParamPath))
                 {
@@ -5026,6 +5098,7 @@ namespace NSC_ModManager.ViewModel
                 if (!File.Exists(specialInteractionPath))
                 {
                     throw new FileNotFoundException($"File not found: {specialInteractionPath}");
+                CompileCheckpoint("NS4: progress line~5024");
                 }
                 byte[] specialCondParam_vanilla = File.ReadAllBytes(specialCondParamPath);
                 byte[] partnerSlotParam_vanilla = File.ReadAllBytes(partnerSlotParamPath);
@@ -5050,7 +5123,6 @@ namespace NSC_ModManager.ViewModel
                 //Compile Character mods
                 foreach (CharacterModModel character_mod in CharacterList)
                 {
-                    CompileCheckpoint($"NS4: char_mod={character_mod.Characode}");
                     string mod_characode = character_mod.Characode;
                     int mod_characodeID = -1;
                     bool replace_character = false;
@@ -5177,6 +5249,7 @@ namespace NSC_ModManager.ViewModel
                                     break;
                                 }
                             }
+                CompileCheckpoint("NS4: progress line~5174");
                         } else
                         {
                             duelPlayerParam_vanilla.DuelPlayerParamList.Add((DuelPlayerParamModel)duelPlayerParam_mod.DuelPlayerParamList[0].Clone());
@@ -5477,6 +5550,7 @@ namespace NSC_ModManager.ViewModel
                                 costumeBreakColorParamS4_mod.OpenFile(costumeBreakColorParamModPath);
                                 if (replace_character)
                                 {
+                CompileCheckpoint("NS4: progress line~5474");
                                     if (costumeBreakColorParamS4_mod.CostumeBreakColorParamList.Count > 0)
                                     {
                                         //Remove old entries
@@ -5927,6 +6001,7 @@ namespace NSC_ModManager.ViewModel
                                                 cfgPage = page;
                                                 cfgSlot = slot;
                                                 cfgCostume = i + 1;
+                CompileCheckpoint("NS4: progress line~5924");
                                             }
 
                                             csp_entry.PageIndex = cfgPage;
@@ -6077,6 +6152,7 @@ namespace NSC_ModManager.ViewModel
                     }
 
 
+                CompileCheckpoint("NS4: progress line~6074");
                     //supportActionParam file
                     SupportActionParamViewModel supportActionParam_mod = new SupportActionParamViewModel();
                     if (File.Exists(supportActionParamModPath))
@@ -6227,6 +6303,7 @@ namespace NSC_ModManager.ViewModel
 
                     //specialCondParam file
                     byte[] partnerSlotParam_mod = new byte[0];
+                CompileCheckpoint("NS4: progress line~6224");
                     if (File.Exists(partnerSlotParamModPath))
                     {
                         partnerSlotParam_mod = File.ReadAllBytes(partnerSlotParamModPath);
@@ -6454,7 +6531,6 @@ namespace NSC_ModManager.ViewModel
 
                 foreach (StageModModel stage_mod in StageList)
                 {
-                    CompileCheckpoint($"NS4: stage_mod={stage_mod.StageName}");
 
                     string stormVersion = stage_mod.GameVersion;
                     string messageInfoModPath = Path.Combine(stage_mod.RootPath, "data", "message");
@@ -6528,6 +6604,7 @@ namespace NSC_ModManager.ViewModel
                             "STAGE_SI71A",
                             "STAGE_0_MAID_IN_HEAVEN",
                                                     };
+                CompileCheckpoint("NS4: progress line~6524");
 
                         if (replace_stage)
                         {
@@ -6608,7 +6685,6 @@ namespace NSC_ModManager.ViewModel
                 //Compile Model mods
                 foreach (CostumeModModel costume_mod in CostumeList)
                 {
-                    CompileCheckpoint($"NS4: model_mod(costume)={costume_mod.Characode}");
                     string mod_characode = costume_mod.Characode;
                     string stormVersion = costume_mod.GameVersion;
                     int mod_characodeID = -1;
@@ -6679,6 +6755,7 @@ namespace NSC_ModManager.ViewModel
 
                     //playerSettingParam file
                     int new_preset_id = 0;
+                CompileCheckpoint("NS4: progress line~6674");
                     string charMessageID = "";
                     string costume_csp_code = "";
                     int csp_code_index = 0;
@@ -6976,10 +7053,10 @@ namespace NSC_ModManager.ViewModel
                 //Compile Team Ultimate Jutsu Mods
                 foreach (TeamUltimateJutsuModModel tuj_mod in TUJList)
                 {
-                    CompileCheckpoint($"NS4: tuj_mod={tuj_mod.Label}");
                     string cmnparamModPath = Path.Combine(tuj_mod.RootPath, "data", "sound", "cmnparam.xfbin");
                     string messageInfoModPath = Path.Combine(tuj_mod.RootPath, "data", "message");
 
+                CompileCheckpoint("NS4: progress line~6974");
                     string stormVersion = tuj_mod.GameVersion;
 
 
@@ -7130,6 +7207,7 @@ namespace NSC_ModManager.ViewModel
                         pairSpSkillCombEntry.MemberCount = tuj_mod.MemberCount;
                         pairSpSkillCombEntry.Condition1 = tuj_mod.Flag1;
                         pairSpSkillCombEntry.Condition2 = tuj_mod.Flag2;
+                CompileCheckpoint("NS4: progress line~7124");
 
                         // Find the existing entry with matching TUJ_ID
                         PairSpSkillCombinationParamModel existingPairSpCombEntry = pairSpSkillComb_vanilla.pairSpSkillList.FirstOrDefault(entry => entry.TUJ_ID == mod_tuj_id);
@@ -7280,6 +7358,7 @@ namespace NSC_ModManager.ViewModel
                                 nuccMaterialFile = BinaryReader.b_AddBytes(nuccMaterialFile, shader_data);
                                 ShaderCount++;
                                 UsedShaders.Add(shader_name); //Adding name of shader in list of used shaders
+                CompileCheckpoint("NS4: progress line~7274");
                             }
                         }
                         nuccMaterialFile = BinaryReader.b_ReplaceBytes(nuccMaterialFile, BitConverter.GetBytes((short)ShaderCount), 0x0E, 0); //Replacing byte of shader's count
@@ -9323,41 +9402,14 @@ namespace NSC_ModManager.ViewModel
 
         void KyurutoDialogTextWork(string dialog, int timer)
         {
-            // PENTING: method ini jalan di background thread (dipanggil via
-            // Task.Run dari KyurutoDialogTextLoader, dan sering dipanggil dari
-            // dalam compileThread saat "Compile" berjalan). KuramaDialog adalah
-            // property yang di-bind ke UI (teks dialog Kurama) - mutasi
-            // langsung dari sini adalah PELANGGARAN cross-thread WPF (harus
-            // lewat Dispatcher UI thread). Di Windows native ini kadang
-            // "kebetulan jalan" tanpa exception, tapi di WinNative/Wine
-            // kemungkinan besar inilah yang memicu WPF Animation/Clock
-            // internal jadi tidak stabil (lihat AUDIT_LOG.md bagian 6l) -
-            // setiap perubahan teks nge-trigger layout/render pass di tengah
-            // storyboard animasi Kurama yang juga sedang jalan, dari thread
-            // yang salah. Fix: semua mutasi KuramaDialog dibungkus
-            // Dispatcher.Invoke supaya SELALU terjadi di UI thread, sama
-            // seperti pola yang sudah dipakai di HandleError().
-            var dispatcher = System.Windows.Application.Current?.Dispatcher;
-            string GetKuramaDialog()
-                => (dispatcher != null && !dispatcher.CheckAccess())
-                    ? dispatcher.Invoke(() => KuramaDialog)
-                    : KuramaDialog;
-            void SetKuramaDialog(string value)
-            {
-                if (dispatcher != null && !dispatcher.CheckAccess())
-                    dispatcher.Invoke(() => KuramaDialog = value);
-                else
-                    KuramaDialog = value;
-            }
-
-            SetKuramaDialog("");
+            KuramaDialog = "";
             for (int i = 0; i < dialog.Length; System.Threading.Thread.Sleep(timer))
             {
-                if (GetKuramaDialog().Length != i || (i == 0 && GetKuramaDialog().Length > 0))
+                if (KuramaDialog.Length != i || (i == 0 && KuramaDialog.Length > 0))
                 {
                     break;
                 }
-                SetKuramaDialog(GetKuramaDialog() + dialog[i]);
+                KuramaDialog += dialog[i];
                 i++;
 
             }
