@@ -722,6 +722,42 @@ seharusnya sekarang punya baris terakhir jauh lebih presisi (granularitas
 ~150 baris kode, bukan ~2500 baris lagi) - itu yang paling dibutuhkan buat
 lanjut analisis.
 
+## 6l. Fix build error (bug checkpoint saya) + ringankan spinner loading
+
+**Build error dari GitHub Actions:** `CS1003`/`CS1026` di
+`TitleViewModel.cs(3683,34)` - "while expected". Penyebab: 1 dari 27
+checkpoint granular (6j) ternyata nyempil PERSIS di antara `}` penutup blok
+`do { ... }` dan `while(...)` di bawahnya - pola `do-while` yang saya lewatkan
+dari validasi sebelumnya (validasi cuma cek baris SEBELUM checkpoint
+berakhir `;`/`{`/`}`, tidak cek apakah baris SESUDAHNYA adalah `while(...)`
+yang jadi bagian dari statement `do-while` yang sama). **Fix:** checkpoint
+itu dipindah ke SETELAH seluruh statement `do-while` selesai (setelah `;`
+penutup `while(...)`). Sudah di-scan ulang, tidak ada pola serupa (checkpoint
+diikuti langsung `while`/`else`) di tempat lain.
+
+**Pengingat kalau nanti nyisip checkpoint otomatis lagi:** jangan cuma cek
+baris SEBELUM titik sisip, tapi juga baris SESUDAHNYA - konstruk `do-while`,
+`if-else`, `try-catch-finally` semua rawan kena kalau checkpoint nyempil di
+"sambungan" antar bagian yang secara sintaks masih 1 statement/blok utuh.
+
+**Simplifikasi `LoadingControl` (spinner loading):** user tanya apa animasi
+loading yang tampil selama compile bisa "dibungkus thread" biar tidak berat.
+Diklarifikasi: animasi `KyurutoDialogTextLoader` (teks dialog karakter)
+SUDAH jalan di background (`Task.Run`, fire-and-forget) sejak awal - bukan
+itu yang berat. Yang dimaksud kemungkinan animasi WPF Storyboard di
+`Controls/LoadingControl.xaml` (spinner 2 gambar berputar+scaling,
+`RepeatBehavior="Forever"`, ini SUMBER dari `NullReferenceException` di
+`TimeIntervalCollection`/`ClockGroup` yang muncul di `crash_log.txt` sesi
+sebelumnya - sudah diredam otomatis oleh self-heal 6d, tapi tetap ada
+overhead render terus-menerus). WPF Storyboard **tidak bisa dipindah ke
+thread lain** (nempel ke UI dispatcher WPF, batasan arsitektur, bukan
+sesuatu yang bisa di-workaround dengan `Thread`/`Task`). Yang bisa
+dilakukan: **ringankan** animasinya. `DropShadowEffect` (`Effect=`) di
+kedua `<Image>` spinner **dihapus** - itu bagian paling mahal (butuh render
+pass ekstra tiap frame utk soft-glow, meski dengan `SoftwareOnly` rendering
+tetap makan CPU). Storyboard rotate+scale-nya sendiri tidak diubah
+(dampak visual minimal kalau dihapus total, dan bukan yang paling mahal).
+
 ## 7. Audit tambahan (belum tentu ada di crash log, ditemukan lewat code review)
 
 - **7× `CommonOpenFileDialog`** (folder picker gaya Vista, `Microsoft.WindowsAPICodePack.Dialogs`,

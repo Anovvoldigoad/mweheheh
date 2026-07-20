@@ -3681,8 +3681,8 @@ namespace NSC_ModManager.ViewModel
                                     csp_code_index++;
                                     costume_csp_code = psp_entry.PSP_code + "_" + csp_code_index.ToString("D6");
                                 }
-                CompileCheckpoint("NSC: progress line~3672");
                                 while (playerSettingParam_vanilla.PSPCodeExists(costume_csp_code));
+                                CompileCheckpoint("NSC: progress line~3672");
                                 psp_entry.PSP_code = costume_csp_code;
                                 psp_entry.CharacodeID = mod_characodeID;
                                 psp_entry.PSP_ID = playerSettingParam_vanilla.MaxSlot() + 1;
