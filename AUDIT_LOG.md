@@ -681,6 +681,47 @@ DI DALAM `YACpkTool.exe` (proses eksternal) saat memproses file itu - beda
 penanganan dengan kalau crash-nya di antara dua checkpoint compile biasa
 (logika C# kita sendiri / `XFBIN_LIB.dll`).
 
+## 6k. Klarifikasi: log terakhir masih dari build LAMA + checkpoint granular baru dikirim
+
+Log yang dikirim user kali ini (`compile_progress.log`, `crash_log.txt`,
+`wine_wfm_*`) ternyata masih hasil test dari **build sebelumnya** (yang cuma
+punya checkpoint kasar - "mulai"/"CleanGameAssets"/"InstallModdingAPI"/
+"mulai-selesai repack X") - karena di respons SEBELUMNYA percakapan
+terpotong PAS saya lagi validasi 33 checkpoint granular tambahan (buat isi
+celah ~2500 baris antara "selesai InstallModdingAPI" dan "mulai extract
+CPK" pertama) SEBELUM sempat di-repackage & dikirim ke user. Jadi belum ada
+info baru dari sisi checkpoint - masih berhenti persis di titik yang sama
+("NSC: selesai InstallModdingAPI").
+
+**Yang dikerjakan sesi ini:**
+1. **Validasi ulang & bersihkan** 33 checkpoint granular yang sempat
+   disisipkan otomatis (tiap ~150 baris) - ternyata **6 di antaranya
+   nyempil di posisi BERBAHAYA** (persis setelah keyword `if(...)`/`else`
+   tanpa kurung kurawal, yang berarti `CompileCheckpoint(...)` itu akan
+   jadi body if/else-nya dan kode ASLI yang harusnya conditional jadi
+   unconditional - BUKAN cuma gagal compile, tapi BISA DIAM-DIAM MENGUBAH
+   LOGIKA PROGRAM kalau lolos tidak ketahuan). Ke-6 titik itu dihapus,
+   sisa **27 checkpoint granular** yang aman (posisinya di akhir statement
+   yang sudah lengkap - diakhiri `;`, `{`, `}`, baris kosong, atau komentar).
+2. **Zip terbaru SUDAH dikirim** ke user kali ini - berisi total **~60
+   checkpoint** (33 lama di titik semantik + 27 baru tiap ~150 baris) di
+   sepanjang `bw_CompileModProcess_NSC`/`_NS4`.
+
+**Bonus konfirmasi dari `crash_log.txt` kali ini:** ada 1 entry
+`Framework-internal failure #1` - `NullReferenceException` di
+`System.Windows.Media.Animation.TimeIntervalCollection.ProjectOntoPeriodicFunction`
+(bug WPF internal di sistem animasi/clock, TIDAK ada hubungannya dengan
+compile flow) - **berhasil diredam otomatis** oleh
+`IsFrameworkInternalFailure` (6d) TANPA popup, cuma tercatat rapi 1 baris.
+Ini BUKTI NYATA bahwa mekanisme self-heal generik dari 6d BEKERJA SEPERTI
+DIRENCANAKAN di real-world usage, bukan cuma teori.
+
+**⚠️ Langkah selanjutnya:** user perlu test ULANG pakai zip yang BARU
+dikirim ini (bukan yang sebelumnya). Kalau masih crash, `compile_progress.log`
+seharusnya sekarang punya baris terakhir jauh lebih presisi (granularitas
+~150 baris kode, bukan ~2500 baris lagi) - itu yang paling dibutuhkan buat
+lanjut analisis.
+
 ## 7. Audit tambahan (belum tentu ada di crash log, ditemukan lewat code review)
 
 - **7× `CommonOpenFileDialog`** (folder picker gaya Vista, `Microsoft.WindowsAPICodePack.Dialogs`,
