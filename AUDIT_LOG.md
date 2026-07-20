@@ -634,6 +634,53 @@ Kalau pola crash-nya BEDA (cuma 1 AV, bukan beruntun) berarti stack
 overflow sudah teratasi dan ini bug lain lagi - kembali ke pendekatan
 investigasi per-kasus seperti biasa.
 
+## 6j. Cek repo XFBIN asli + checkpoint logging (bukan nebak dari native trace lagi)
+
+Fix stack 64MB (6i) mengurangi jumlah AV beruntun (4→2) tapi **belum
+menuntaskan** - masih crash pola sama (AV beruntun → `RaiseFailFastException`).
+User kasih 4 link repo yang mungkin source XFBIN_LIB yang benar:
+- `TheLeonX/XFBIN_LIB` - **dicek**, ternyata versi SAMA dengan yang sudah
+  dicoba dulu (`XFBIN_LIB-main.zip`), masih cuma punya `ReadXFBIN`/
+  `GetXfbinChunkType`, TIDAK ada `FindChunks`/`RepackXfbinData`/
+  `ChangeChunkNameAndPath`. Bukan solusi buat API-mismatch (lihat bagian 4).
+- `TheLeonX/XFBIN_PARSER` - **dicek**, ternyata tool command-line terpisah
+  (drag-drop exe / context menu integration), bukan library yang dipakai
+  NSC-ModManager.
+- `mosamadeeb/xfbin_lib` & `mosamadeeb/xfbin-lib-rs` - **tidak dicek
+  detail**, dari namanya kemungkinan besar library Python/Rust (dipakai
+  komunitas modding Storm secara umum) - tidak bisa langsung dipakai dari
+  C# tanpa interop kompleks, di luar scope.
+
+**Temuan berguna dari `TheLeonX/XFBIN_LIB`:** kode `XFBIN_READER.cs`-nya
+**murni pakai `while` loop, TIDAK ADA rekursi sama sekali**. Jadi kalau
+struktur `.dll` prebuilt yang kita pakai mirip (masuk akal, sama-sama dari
+penulis yang sama), kemungkinan besar **parsing XFBIN BUKAN sumber stack
+overflow-nya** - titik curiga bergeser ke tempat lain (proses compile
+sendiri, atau WPF/library lain).
+
+**Perubahan strategi (atas permintaan user "gimana kamu aja"):** daripada
+terus nebak dari trace native Wine yang buta soal kode C# kita (cuma nunjuk
+alamat memori/nama modul .dll, bukan nama method kita), ditambahkan
+**checkpoint logging** manual - `CompileCheckpoint(string step)` (baris
+~1702, `TitleViewModel.cs`) yang nulis timestamp ke `compile_progress.log`
+di folder app. Disebar di **33 titik** sepanjang `bw_CompileModProcess_NSC`/
+`_NS4`:
+- Awal method, setelah `CleanGameAssets(NS4)`, setelah `InstallModdingAPI`
+- Sebelum & sesudah tiap `RepackHelper.RunExtractProcess`/`RunRepackProcess`
+  (4× repack per versi game: resources/cpk_assets/data_win32/param_files)
+- Sebelum & sesudah `RepackHelper.ExtractZipSafe` (install mod)
+- Titik selesai ("mods ready")
+
+**⚠️ Kalau masih crash setelah ini:** **WAJIB minta `compile_progress.log`**
+dari folder app (sejajar `crash_log.txt`), BUKAN cuma log Wine/box64 lagi.
+Baris TERAKHIR di file itu = tahap PERSIS yang terakhir sempat jalan
+sebelum crash - ini akan menyempitkan pencarian drastis dibanding nebak
+dari alamat native. Kalau crash-nya di tengah salah satu blok "mulai
+repack X" tanpa "selesai repack X" yang cocok, itu tandanya crash terjadi
+DI DALAM `YACpkTool.exe` (proses eksternal) saat memproses file itu - beda
+penanganan dengan kalau crash-nya di antara dua checkpoint compile biasa
+(logika C# kita sendiri / `XFBIN_LIB.dll`).
+
 ## 7. Audit tambahan (belum tentu ada di crash log, ditemukan lewat code review)
 
 - **7× `CommonOpenFileDialog`** (folder picker gaya Vista, `Microsoft.WindowsAPICodePack.Dialogs`,

@@ -1690,13 +1690,36 @@ namespace NSC_ModManager.ViewModel
             }
         }
 
+        /// <summary>
+        /// Checkpoint logging untuk diagnosis crash native (ACCESS_VIOLATION/
+        /// StackOverflow dll) yang TIDAK bisa ditangkap try-catch .NET biasa dan
+        /// TIDAK muncul di crash_log.txt. Log Wine/box64 cuma nunjuk ke alamat
+        /// native tanpa nama method C# kita - dengan checkpoint ini, kalau crash
+        /// lagi, kita tahu PERSIS baris "tahap" mana yang terakhir sempat jalan
+        /// (lihat compile_progress.log di folder app), bukan nebak dari trace
+        /// native yang buta soal kode kita.
+        /// </summary>
+        private static void CompileCheckpoint(string step)
+        {
+            try
+            {
+                File.AppendAllText(
+                    Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "compile_progress.log"),
+                    $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff}] {step}\n");
+            }
+            catch { /* jangan sampai logging sendiri bikin crash */ }
+        }
+
         void bw_CompileModProcess_NSC(string path)
         {
             try
             {
+                CompileCheckpoint("NSC: mulai");
                 string root_folder = path;
                 CleanGameAssets(false, false);
+                CompileCheckpoint("NSC: selesai CleanGameAssets");
                 InstallModdingAPI(false, Properties.Settings.Default.RootGameNSCFolder);
+                CompileCheckpoint("NSC: selesai InstallModdingAPI");
                 Debug.WriteLine("Starting mod compilation...");
                 KyurutoDialogTextLoader("Preparing all files!",
                     20);
@@ -4257,7 +4280,9 @@ namespace NSC_ModManager.ViewModel
                         {
 
 
+                            CompileCheckpoint("NSC: mulai extract CPK");
                             RepackHelper.RunExtractProcess(Path.GetFullPath(cpk.FullName));
+                            CompileCheckpoint("NSC: selesai extract CPK");
                             string fileName = Path.GetFileNameWithoutExtension(cpk.FullName);
                             string sourcePath = Path.Combine(Path.GetDirectoryName(cpk.FullName), fileName);
                             string destinationPath = Path.Combine(root_folder, "cpk_assets");
@@ -4709,7 +4734,9 @@ namespace NSC_ModManager.ViewModel
                     if (Directory.Exists(resourcePath) &&
                         Directory.EnumerateFiles(resourcePath, "*.*", SearchOption.AllDirectories).Any())
                     {
+                        CompileCheckpoint("NSC: mulai repack resources_modmanager.cpk");
                         RepackHelper.RunRepackProcess(resourcePath, Path.Combine(root_folder, "moddingapi", "mods", "base_game", "resources_modmanager.cpk"));
+                        CompileCheckpoint("NSC: selesai repack resources_modmanager.cpk");
 
 
                         File.WriteAllBytes(
@@ -4722,7 +4749,9 @@ namespace NSC_ModManager.ViewModel
                     if (Directory.Exists(cpkAssetsPath) &&
                         Directory.EnumerateFiles(cpkAssetsPath, "*.*", SearchOption.AllDirectories).Any())
                     {
+                        CompileCheckpoint("NSC: mulai repack cpk_assets.cpk");
                         RepackHelper.RunRepackProcess(cpkAssetsPath, Path.Combine(root_folder, "moddingapi", "mods", "base_game", "cpk_assets.cpk"));
+                        CompileCheckpoint("NSC: selesai repack cpk_assets.cpk");
 
 
                         File.WriteAllBytes(
@@ -4735,7 +4764,9 @@ namespace NSC_ModManager.ViewModel
                     if (Directory.Exists(dataWin32Path) &&
                         Directory.EnumerateFiles(dataWin32Path, "*.*", SearchOption.AllDirectories).Any())
                     {
+                        CompileCheckpoint("NSC: mulai repack data_win32_modmanager.cpk");
                         RepackHelper.RunRepackProcess(dataWin32Path, Path.Combine(root_folder, "moddingapi", "mods", "base_game", "data_win32_modmanager.cpk"));
+                        CompileCheckpoint("NSC: selesai repack data_win32_modmanager.cpk");
 
                         //CpkBlockEncrypter.EncryptDataBlocksInCpk(Path.Combine(root_folder, "moddingapi", "mods", "base_game", "data_win32_modmanager.cpk"));
 
@@ -4750,7 +4781,9 @@ namespace NSC_ModManager.ViewModel
                     if (Directory.Exists(paramModmanagerFullPath) &&
                         Directory.EnumerateFiles(paramModmanagerFullPath, "*.*", SearchOption.AllDirectories).Any())
                     {
+                        CompileCheckpoint("NSC: mulai repack param_files.cpk");
                         RepackHelper.RunRepackProcess(paramModmanagerFullPath, Path.Combine(root_folder, "moddingapi", "mods", "base_game", "param_files.cpk"));
+                        CompileCheckpoint("NSC: selesai repack param_files.cpk");
                         File.WriteAllBytes(
                             Path.Combine(root_folder, "moddingapi", "mods", "base_game", "param_files.cpk.info"),
                             new byte[8] { 0x22, 0, 0, 0, 1, 0, 0, 0 });
@@ -4802,6 +4835,7 @@ namespace NSC_ModManager.ViewModel
                 Application.Current.Dispatcher.Invoke(() =>
                 {
                     KyurutoDialogTextLoader("Your mods are ready!", 20);
+                    CompileCheckpoint("NSC: SELESAI - mods ready");
                 });
                 SystemSounds.Beep.Play();
 
@@ -4832,9 +4866,12 @@ namespace NSC_ModManager.ViewModel
         {
             try
             {
+                CompileCheckpoint("NS4: mulai");
                 string root_folder = path;
                 CleanGameAssetsNS4(false, false);
+                CompileCheckpoint("NS4: selesai CleanGameAssetsNS4");
                 InstallModdingAPI(false, Properties.Settings.Default.RootGameNS4Folder);
+                CompileCheckpoint("NS4: selesai InstallModdingAPI");
                 Debug.WriteLine("Starting mod compilation...");
                 KyurutoDialogTextLoader("Preparing all files!",
                     20);
@@ -7250,7 +7287,9 @@ namespace NSC_ModManager.ViewModel
                         {
 
 
+                            CompileCheckpoint("NS4: mulai extract CPK");
                             RepackHelper.RunExtractProcess(Path.GetFullPath(cpk.FullName));
+                            CompileCheckpoint("NS4: selesai extract CPK");
                             string fileName = Path.GetFileNameWithoutExtension(cpk.FullName);
                             string sourcePath = Path.Combine(Path.GetDirectoryName(cpk.FullName), fileName);
                             string destinationPath = Path.Combine(root_folder, "cpk_assets");
@@ -7680,7 +7719,9 @@ namespace NSC_ModManager.ViewModel
                 if (Directory.Exists(resourcesPath) &&
                     Directory.EnumerateFiles(resourcesPath, "*.*", SearchOption.AllDirectories).Any())
                 {
+                    CompileCheckpoint("NS4: mulai repack resources_modmanager.cpk");
                     RepackHelper.RunRepackProcess(resourcesPath, Path.Combine(root_folder, "moddingapi", "mods", "base_game", "resources_modmanager.cpk"));
+                    CompileCheckpoint("NS4: selesai repack resources_modmanager.cpk");
 
 
                     File.WriteAllBytes(
@@ -7692,7 +7733,9 @@ namespace NSC_ModManager.ViewModel
                 if (Directory.Exists(cpkAssetsPath) &&
                     Directory.EnumerateFiles(cpkAssetsPath, "*.*", SearchOption.AllDirectories).Any())
                 {
+                    CompileCheckpoint("NS4: mulai repack cpk_assets.cpk");
                     RepackHelper.RunRepackProcess(cpkAssetsPath, Path.Combine(root_folder, "moddingapi", "mods", "base_game", "cpk_assets.cpk"));
+                    CompileCheckpoint("NS4: selesai repack cpk_assets.cpk");
 
 
                     File.WriteAllBytes(
@@ -7705,7 +7748,9 @@ namespace NSC_ModManager.ViewModel
                 if (Directory.Exists(dataWin32Path) &&
                     Directory.EnumerateFiles(dataWin32Path, "*.*", SearchOption.AllDirectories).Any())
                 {
+                    CompileCheckpoint("NS4: mulai repack data_win32_modmanager.cpk");
                     RepackHelper.RunRepackProcess(dataWin32Path, Path.Combine(root_folder, "moddingapi", "mods", "base_game", "data_win32_modmanager.cpk"));
+                    CompileCheckpoint("NS4: selesai repack data_win32_modmanager.cpk");
 
 
                     File.WriteAllBytes(
@@ -7718,7 +7763,9 @@ namespace NSC_ModManager.ViewModel
                 if (Directory.Exists(paramModmanagerFullPath) &&
                     Directory.EnumerateFiles(paramModmanagerFullPath, "*.*", SearchOption.AllDirectories).Any())
                 {
+                    CompileCheckpoint("NS4: mulai repack param_files.cpk");
                     RepackHelper.RunRepackProcess(paramModmanagerFullPath, Path.Combine(root_folder, "moddingapi", "mods", "base_game", "param_files.cpk"));
+                    CompileCheckpoint("NS4: selesai repack param_files.cpk");
                     File.WriteAllBytes(
                         Path.Combine(root_folder, "moddingapi", "mods", "base_game", "param_files.cpk.info"),
                         new byte[8] { 0x22, 0, 0, 0, 1, 0, 0, 0 });
@@ -7775,6 +7822,7 @@ namespace NSC_ModManager.ViewModel
                 Application.Current.Dispatcher.Invoke(() =>
                 {
                     KyurutoDialogTextLoader("Your mods are ready!", 20);
+                    CompileCheckpoint("NS4: SELESAI - mods ready");
                 });
                 SystemSounds.Beep.Play();
 
@@ -7906,7 +7954,9 @@ namespace NSC_ModManager.ViewModel
                     ExtractNus4(mod_path, InstallMod_folder);
                 } else
                 {
+                    CompileCheckpoint("NSC/NS4: mulai ExtractZipSafe (install mod)");
                     RepackHelper.ExtractZipSafe(mod_path, InstallMod_folder);
+                    CompileCheckpoint("NSC/NS4: selesai ExtractZipSafe (install mod)");
                 }
 
                 RefreshModList();
@@ -7950,7 +8000,9 @@ namespace NSC_ModManager.ViewModel
                     outFs.Write(fileData, offset, fileData.Length - offset);
                     outFs.Flush();
                 }
+                CompileCheckpoint("NS4: mulai ExtractZipSafe (install mod tempZip)");
                 RepackHelper.ExtractZipSafe(tempZip, extractedTemp);
+                CompileCheckpoint("NS4: selesai ExtractZipSafe (install mod tempZip)");
 
                 // --- create destination structure (do not extract into destination) ---
                 Directory.CreateDirectory(destinationFolder);
