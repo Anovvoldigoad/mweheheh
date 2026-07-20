@@ -20,27 +20,22 @@
             RotateTransform biasa (cuma di-drive manual, bukan via WPF
             Storyboard/Clock), jadi hasil visualnya identik.
         -->
-        <Style x:Key="KuramaTailAnimation" TargetType="Image">
-            <Setter Property="Image.RenderTransform">
-                <Setter.Value>
-                    <RotateTransform/>
-                </Setter.Value>
-            </Setter>
-        </Style>
-        <Style x:Key="KuramaTailAnimation_2" TargetType="Image">
-            <Setter Property="Image.RenderTransform">
-                <Setter.Value>
-                    <RotateTransform/>
-                </Setter.Value>
-            </Setter>
-        </Style>
-        <Style x:Key="KuramaTailAnimation_3" TargetType="Image">
-            <Setter Property="Image.RenderTransform">
-                <Setter.Value>
-                    <RotateTransform/>
-                </Setter.Value>
-            </Setter>
-        </Style>
+        <!--
+            FIX (lihat AUDIT_LOG.md bagian 6m): RotateTransform TIDAK LAGI di-set
+            lewat Style Setter di sini. Style di WPF itu di-seal (immutable) begitu
+            dipakai kali pertama, dan Setter.Value yang berupa Freezable (spt
+            RotateTransform) ikut di-FREEZE saat itu juga - jadi SATU instance yang
+            sama dipakai bersama oleh semua Image yang pakai Style ini, dan sudah
+            read-only. Makanya `t.Transform.Angle = ...` di code-behind selalu
+            lempar InvalidOperationException ("read-only state") di SETIAP start
+            app (lihat crash_log.txt: "Cannot set a property on object
+            'System.Windows.Media.RotateTransform'..."), yang selama ini keliru
+            diklasifikasikan sebagai "framework-internal/bug Wine" dan diredam
+            diam-diam - padahal ini bug app sendiri, dan akibatnya animasi ekor
+            Kurama TIDAK PERNAH benar-benar jalan. RotateTransform sekarang
+            dideklarasikan langsung per-Image di bawah (bukan lewat Style), supaya
+            tiap Image dapat instance sendiri yang independen & tidak frozen.
+        -->
         <Style x:Key="NoChromeButton" TargetType="{x:Type Button}">
             <Setter Property="Background" Value="Transparent"/>
             <Setter Property="BorderThickness" Value="0"/>
@@ -77,13 +72,25 @@
         
     </UserControl.Resources>
     <Grid MaxHeight="300" MinHeight="200">
-        <Image Style="{StaticResource KuramaTailAnimation_2}"   Height="180" Width="150" Stretch="Uniform" x:Name="KuramaTailImage_3" Source="{DynamicResource ResourceKey=KuramaTail_4}" RenderOptions.BitmapScalingMode="HighQuality" Panel.ZIndex="0" RenderTransformOrigin="0.501,0.848" Margin="0,-60,0,0"/>
-        <Image Style="{StaticResource KuramaTailAnimation}"  Height="180" Width="150" Stretch="Uniform" x:Name="KuramaTailImage_2" Source="{DynamicResource ResourceKey=KuramaTail_3}" RenderOptions.BitmapScalingMode="HighQuality" Panel.ZIndex="0" RenderTransformOrigin="0.937,0.675" Margin="-116,0,0,-27"/>
+        <Image Height="180" Width="150" Stretch="Uniform" x:Name="KuramaTailImage_3" Source="{DynamicResource ResourceKey=KuramaTail_4}" RenderOptions.BitmapScalingMode="HighQuality" Panel.ZIndex="0" RenderTransformOrigin="0.501,0.848" Margin="0,-60,0,0">
+            <Image.RenderTransform>
+                <RotateTransform/>
+            </Image.RenderTransform>
+        </Image>
+        <Image Height="180" Width="150" Stretch="Uniform" x:Name="KuramaTailImage_2" Source="{DynamicResource ResourceKey=KuramaTail_3}" RenderOptions.BitmapScalingMode="HighQuality" Panel.ZIndex="0" RenderTransformOrigin="0.937,0.675" Margin="-116,0,0,-27">
+            <Image.RenderTransform>
+                <RotateTransform/>
+            </Image.RenderTransform>
+        </Image>
         <Button Style="{StaticResource NoChromeButton}"  Panel.ZIndex="10" Height="220" Width="220" >
             <Image Stretch="Uniform" x:Name="KuramaBodyImage" Source="{DynamicResource ResourceKey=KuramaBody}" RenderOptions.BitmapScalingMode="HighQuality" Panel.ZIndex="1"/>
 
         </Button>
-        <Image Style="{StaticResource KuramaTailAnimation_3}"  Height="180" Width="150" Stretch="Uniform" x:Name="KuramaTailImage" Source="{DynamicResource ResourceKey=KuramaTail_2}" RenderOptions.BitmapScalingMode="HighQuality" Panel.ZIndex="0" RenderTransformOrigin="0.008,0.708" Margin="0,0,-145,-24"/>
+        <Image Height="180" Width="150" Stretch="Uniform" x:Name="KuramaTailImage" Source="{DynamicResource ResourceKey=KuramaTail_2}" RenderOptions.BitmapScalingMode="HighQuality" Panel.ZIndex="0" RenderTransformOrigin="0.008,0.708" Margin="0,0,-145,-24">
+            <Image.RenderTransform>
+                <RotateTransform/>
+            </Image.RenderTransform>
+        </Image>
         
     </Grid>
 </UserControl>

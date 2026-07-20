@@ -116,11 +116,47 @@ namespace NSC_ModManager
         /// load template, ContentPresenter.SelectTemplate - semuanya pola yang sama:
         /// mesin internal WPF yang rapuh di bawah Wine/WinNative, BUKAN bug logika app.
         /// Popup untuk kategori ini tidak actionable buat user, jadi diredam diam-diam.
+        ///
+        /// FIX (lihat AUDIT_LOG.md bagian 6n): sebelumnya cuma cek namespace TargetSite
+        /// (method PERSIS tempat exception dilempar). Itu meleset untuk kasus seperti
+        /// UriFormatException dari font-cache pipeline: exception-nya secara teknis
+        /// dilempar dari System.Uri..ctor (namespace "System", BUKAN "System.Windows"
+        /// dkk), padahal caller-nya adalah MS.Internal.FontCache.Util.
+        /// CombineUriWithFaceIndex - jelas WPF font pipeline internal, bukan kode app.
+        /// Akibatnya exception ini lolos dari filter dan malah ditampilkan sebagai
+        /// popup crash ke user (lihat crash_log.txt entry "DispatcherUnhandledException"
+        /// jam 21:22:58) padahal mitigasi "swap NarutoFont ke fallback" di bawah
+        /// (LogAndShowCrash) memang sudah ditulis khusus untuk exception ini - cuma
+        /// tidak pernah kepanggil karena salah diklasifikasikan. Sekarang: kalau
+        /// TargetSite tidak match, cek juga seluruh StackTrace untuk namespace WPF
+        /// internal (mis. "MS.Internal.FontCache", "System.Windows.Media") supaya
+        /// UriFormatException semacam ini konsisten kena rute framework-internal juga.
         /// </summary>
         private static bool IsFrameworkInternalFailure(Exception ex)
         {
-            string ns = ex?.TargetSite?.DeclaringType?.Namespace;
-            if (string.IsNullOrEmpty(ns)) return false;
+            if (ex == null) return false;
+
+            string ns = ex.TargetSite?.DeclaringType?.Namespace;
+            if (!string.IsNullOrEmpty(ns) && IsWpfInternalNamespace(ns))
+                return true;
+
+            // Fallback: TargetSite cuma menunjuk method PALING BAWAH tempat exception
+            // dilempar (mis. System.Uri..ctor), yang bisa saja bukan WPF namespace
+            // walau seluruh call chain di atasnya murni WPF internal (mis. dipanggil
+            // dari MS.Internal.FontCache). Scan full stack trace text sbg fallback.
+            string stack = ex.StackTrace;
+            if (!string.IsNullOrEmpty(stack) &&
+                (stack.Contains("MS.Internal.") ||
+                 stack.Contains("System.Windows.") ||
+                 stack.Contains("System.Xaml.") ||
+                 stack.Contains("Microsoft.Windows.Themes.")))
+                return true;
+
+            return false;
+        }
+
+        private static bool IsWpfInternalNamespace(string ns)
+        {
             return ns.StartsWith("System.Windows") || ns.StartsWith("System.Xaml") ||
                    ns.StartsWith("MS.Internal") || ns.StartsWith("Microsoft.Windows.Themes");
         }
