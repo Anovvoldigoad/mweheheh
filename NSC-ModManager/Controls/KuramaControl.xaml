@@ -6,31 +6,26 @@
              xmlns:local="clr-namespace:NSC_ModManager.Controls"
              mc:Ignorable="d">
     <UserControl.Resources>
+        <!--
+            CATATAN (lihat AUDIT_LOG.md bagian 6l): style KuramaTailAnimation/_2/_3
+            DULU pakai <Storyboard><DoubleAnimation ... RepeatBehavior="Forever"
+            AutoReverse="True"/></Storyboard> lewat Style.Triggers (IsEnabled=True).
+            Ini DIHAPUS dan diganti animasi manual via DispatcherTimer di
+            KuramaControl.xaml.cs (lihat method StartTailAnimations) - method WPF
+            internal yang menangani animasi periodik ini
+            (System.Windows.Media.Animation.TimeIntervalCollection.
+            ProjectOntoPeriodicFunction) TERBUKTI dari crash_log.txt +
+            log Wine jadi sumber NullReferenceException/native
+            ACCESS_VIOLATION berulang di WinNative. RenderTransform tetap
+            RotateTransform biasa (cuma di-drive manual, bukan via WPF
+            Storyboard/Clock), jadi hasil visualnya identik.
+        -->
         <Style x:Key="KuramaTailAnimation" TargetType="Image">
             <Setter Property="Image.RenderTransform">
                 <Setter.Value>
                     <RotateTransform/>
                 </Setter.Value>
             </Setter>
-            <Style.Triggers>
-                <Trigger Property="IsEnabled" Value="True">
-                    <Trigger.EnterActions>
-                        <BeginStoryboard>
-                            <Storyboard>
-                                <DoubleAnimation
-                                        Storyboard.TargetProperty="RenderTransform.Angle"
-                                        From="-10"
-                                        To="10"
-                                        Duration="0:0:1.5"
-                                        AccelerationRatio="0.2" 
-                                        DecelerationRatio="0.2"
-                                        RepeatBehavior="Forever" 
-                                        AutoReverse="True"/>
-                            </Storyboard>
-                        </BeginStoryboard>
-                    </Trigger.EnterActions>
-                </Trigger>
-            </Style.Triggers>
         </Style>
         <Style x:Key="KuramaTailAnimation_2" TargetType="Image">
             <Setter Property="Image.RenderTransform">
@@ -38,25 +33,6 @@
                     <RotateTransform/>
                 </Setter.Value>
             </Setter>
-            <Style.Triggers>
-                <Trigger Property="IsEnabled" Value="True">
-                    <Trigger.EnterActions>
-                        <BeginStoryboard>
-                            <Storyboard>
-                                <DoubleAnimation
-                                        Storyboard.TargetProperty="RenderTransform.Angle"
-                                        From="10"
-                                        To="-10"
-                                        Duration="0:0:2"
-                                        AccelerationRatio="0.3" 
-                                        DecelerationRatio="0.3"
-                                        RepeatBehavior="Forever" 
-                                        AutoReverse="True"/>
-                            </Storyboard>
-                        </BeginStoryboard>
-                    </Trigger.EnterActions>
-                </Trigger>
-            </Style.Triggers>
         </Style>
         <Style x:Key="KuramaTailAnimation_3" TargetType="Image">
             <Setter Property="Image.RenderTransform">
@@ -64,25 +40,6 @@
                     <RotateTransform/>
                 </Setter.Value>
             </Setter>
-            <Style.Triggers>
-                <Trigger Property="IsEnabled" Value="True">
-                    <Trigger.EnterActions>
-                        <BeginStoryboard>
-                            <Storyboard>
-                                <DoubleAnimation
-                                        Storyboard.TargetProperty="RenderTransform.Angle"
-                                        From="-14"
-                                        To="15"
-                                        Duration="0:0:2.4"
-                                        AccelerationRatio="0.3" 
-                                        DecelerationRatio="0.3"
-                                        RepeatBehavior="Forever" 
-                                        AutoReverse="True"/>
-                            </Storyboard>
-                        </BeginStoryboard>
-                    </Trigger.EnterActions>
-                </Trigger>
-            </Style.Triggers>
         </Style>
         <Style x:Key="NoChromeButton" TargetType="{x:Type Button}">
             <Setter Property="Background" Value="Transparent"/>
