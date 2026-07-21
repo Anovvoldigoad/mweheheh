@@ -11,6 +11,16 @@
          CommonOpenFileDialog (WindowsAPICodePack, gaya Vista/IFileDialog COM)
          kadang tidak stabil di Wine/Winlator. -->
     <UseWindowsForms>true</UseWindowsForms>
+    <!-- Matikan Background/Concurrent GC. Alasan: hampir SEMUA crash native
+         yang ditemukan sejauh ini (lihat AUDIT_LOG.md bagian 6e-6i, 6p)
+         melibatkan koordinasi/sinkronisasi ANTAR-THREAD yang rapuh di bawah
+         box64+wow64 (process-spawn, WaitForExit, dst). Background GC .NET
+         jalan di thread TERPISAH yang terus-menerus suspend/resume thread
+         app - pola sinkronisasi yang sama persis. ConcurrentGarbageCollection
+         =false memaksa GC jadi blocking single-threaded (lebih lambat, tapi
+         menghilangkan seluruh kelas masalah sinkronisasi GC lintas-thread). -->
+    <ConcurrentGarbageCollection>false</ConcurrentGarbageCollection>
+    <ServerGarbageCollection>false</ServerGarbageCollection>
     <ApplicationIcon>white_MM.ico</ApplicationIcon>
 
     <Install>true</Install>

@@ -17,7 +17,57 @@ https://github.com/WinNative-Emu/WinNative
 
 ---
 
+## STATUS TERKINI (update tiap sesi - baca ini dulu sebelum apa-apa)
+
+**Per 2026-07-21 (update kedua hari ini):** app SUDAH bisa jalan & dipakai
+untuk fitur non-compile (install mod manual, dsb). Blocker utama yang
+TERSISA: **"Compile & Launch" NSC masih crash** di tengah parsing
+`characterSelectParam` (file roster karakter terbesar, 349 entry), SELALU
+di rentang entry ~200-250. Sudah 5 teori dicoba (6e-style thinking berulang
+ke 6i, lalu 6p) dan **6p (realokasi ObservableCollection) baru saja
+DIKONFIRMASI GAGAL** - fix diterapkan, hasil tidak berubah sama sekali.
+Teori TERBARU (6q - Background GC lintas-thread) **sedang menunggu
+verifikasi** dari `compile_progress.log` berikutnya.
+
+**Fitur lain (compile NS4, install mod manual, dll) statusnya BELUM
+tentu aman** - sejauh ini fokus debugging 100% di jalur compile NSC karena
+itu yang direproduksi user berulang kali. NS4 punya checkpoint yang sama
+tapi belum pernah benar-benar diuji.
+
+### Tabel ringkasan status (lihat detail lengkap di bagian 6a-6p)
+
+| # | Masalah | Fix | Status |
+|---|---|---|---|
+| 6a | Crash senyap saat cek update GitHub | Try-catch + timeout + skip via env var | ✅ Tuntas |
+| 6b | Font `UriFormatException` (DataGridHeaderBorder) | Full ControlTemplate + pack URI | ✅ Tuntas |
+| 6c | Font crash di SEMUA kombinasi nama font | Self-heal permanen (ganti font, tanpa popup) | 🟡 Mitigasi (bukan fix akar - akarnya di sisi Wine, user sudah perbaiki sendiri lewat registry) |
+| 6d | NRE internal WPF (ContentPresenter/XamlObjectWriter/ClassicBorderDecorator) | Generalisasi self-heal + full template Menu/MenuItem | 🟡 Mitigasi, dipantau |
+| 6e | Native crash (ACCESS_VIOLATION) saat compile - ZIP | Ganti ke SharpZipLib | ✅ Tuntas |
+| 6f | Macet total (hang) saat compile | UseShellExecute=false + timeout 3 menit | ✅ Tuntas |
+| 6g | Native crash wow64 saat spawn proses | ProcessLauncher via .bat + pisah Compile/Launch | ✅ Tuntas (untuk titik itu) |
+| 6h | Dugaan SIMD/box64 | `DOTNET_EnableHWIntrinsic=0` | ❌ Terbukti salah teori |
+| 6i-a/b | StackOverflowException | Thread custom stack 64MB | 🟡 Mengurangi gejala (4→2 AV beruntun), belum tuntas total |
+| 6j-6n | Checkpoint logging bertahap | - | ✅ Tuntas (alat diagnosis, bukan fix) |
+| 6o | Dugaan animasi jadi kontributor | Hapus Storyboard Forever-loop | ❌ Terbukti salah teori |
+| 6p | Dugaan realokasi ObservableCollection | Refactor ke `List<T>` pre-sized | ❌ Terbukti salah teori |
+| 6q | Dugaan Background GC lintas-thread | `ConcurrentGarbageCollection=false` + `ServerGarbageCollection=false` | ⏳ **Menunggu verifikasi user - INI YANG DITUNGGU SEKARANG** |
+
+**Legend:** ✅ Tuntas & terverifikasi lewat log | 🟡 Mitigasi (gejala teratasi, akar belum tentu) | ⏳ Menunggu verifikasi | ❌ Terbukti bukan penyebab
+
+### Saran debugging ke depan (dari review eksternal 2026-07-21)
+- Kalau perlu log Wine baru tapi mau lebih ringan dari trace penuh, coba
+  `WINEDEBUG=+seh,+pid` (fokus ke exception handling doang, jauh lebih
+  kecil filenya daripada `+all`/trace penuh yang selama ini dipakai).
+- Kalau jalur `characterSelectParam` ini masih buntu setelah 6p, opsi
+  investigasi yang BELUM dicoba: buka `XFBIN_LIB.dll`/`BinaryReader.cs`
+  logic pakai **ILSpy/dnSpy** buat inspeksi lebih dalam (walau untuk
+  `characterSelectParam` spesifik ini sudah dikonfirmasi TIDAK lewat
+  `XFBIN_LIB.dll`, cuma `BinaryReader.cs` sendiri - lihat 6n).
+
+---
+
 ## 0. Konteks awal
+
 
 Project asli: **NSC-ModManager** (mod manager WPF untuk game Naruto Storm
 Connections/Storm 4), dibangun pakai **ModernWpf** (Fluent Design UI), target
@@ -507,7 +557,7 @@ hipotesis SIMD-nya ternyata salah, itu perubahan sia-sia yang menambah
 kompleksitas tanpa manfaat. Lebih efisien verifikasi dulu lewat env var
 manual (instant, tanpa build ulang) sebelum commit ke perubahan kode.
 
-## 6i. StackOverflowException (bukan SIMD) - fix: jalankan compile di thread stack besar
+## 6i-a. StackOverflowException (bukan SIMD) - fix: jalankan compile di thread stack besar
 
 Env var `DOTNET_EnableHWIntrinsic=0` dari 6h **TIDAK membantu** - hipotesis
 SIMD/box64 terbukti salah. Log trace berikutnya (dianalisis baris demi
@@ -571,7 +621,7 @@ ulang oleh user):** SUDAH diimplementasikan dengan benar di 6g (dua command
 terpisah, `CompileModsCommand` & `LaunchGameCommand`, dua tombol terpisah di
 UI) dan TIDAK disentuh/diregresi di bagian 6h/6i ini - masih utuh.
 
-## 6i. Ketemu akar masalah sebenarnya: STACK OVERFLOW (bukan SIMD/box64)
+## 6i-b. Ketemu akar masalah sebenarnya: STACK OVERFLOW (bukan SIMD/box64)
 
 Tes `DOTNET_EnableHWIntrinsic=0` dari 6h **tidak menyelesaikan** crash (atau
 belum sempat diverifikasi user apply dengan benar - tidak bisa dipastikan
@@ -952,6 +1002,79 @@ tempat lain (loop kedua base-costume lookup, atau param file BERIKUTNYA
 setelah characterSelectParam) - itu progress nyata, lanjut investigasi di
 titik baru itu dengan pola yang sama (checkpoint granular).
 
+## 7b. Konfirmasi & catatan technical debt (dari review eksternal 2026-07-21)
+
+**`YaCpkTool`/`CriCpkMaker.CpkMaker` di `Properties/Program.cs` - DIKONFIRMASI
+dead code.** Sempat disebut "kemungkinan dead code" di bagian 6e tapi belum
+pernah dipastikan. Sudah di-`grep` ulang: **nol pemanggil** di luar
+`Properties/Program.cs` sendiri, di seluruh project. Sengaja **belum
+dihapus** - alasan: (1) menghapus butuh juga menghapus reference
+`CpkMaker.dll` (`Version=0.0.0.0, processorArchitecture=x86`) dari
+`.csproj`, yang menambah 1 lagi perubahan struktural di tengah proses
+debug crash yang sedang berjalan - risiko regresi baru tidak sepadan
+manfaatnya (dead code TIDAK dipanggil = TIDAK berkontribusi ke crash yang
+lagi dikejar). Aman dihapus kapan saja setelah app stabil, sebagai
+pembersihan terpisah.
+
+**`TitleViewModel.cs` - technical debt "God Class" (~9300+ baris).**
+Valid dan diakui sebagai debt jangka panjang: idealnya dipecah jadi
+`CompileService`/`RepackService`/`GameLaunchService`/dll terpisah. **Sengaja
+TIDAK direfactor sekarang** - alasan sama: setiap refactor struktural
+menambah risiko regresi yang HARUS diverifikasi lewat siklus
+build→kirim→user-test→kirim-log (siklusnya berjam-jam, bukan instant),
+dan saat ini fokusnya masih 100% cari akar crash compile yang belum
+selesai. Refactor besar sebaiknya dilakukan SETELAH app stabil, bertahap
+per sesi (ekstrak 1 service per sesi, seperti disarankan), bukan sekaligus.
+
+## 6q. Fix 6p TERBUKTI GAGAL + teori baru: Background GC lintas-thread
+
+`compile_progress.log` dengan checkpoint per-entry (dari 6p) kasih hasil
+jelas: **fix `List<T>` pre-sized TIDAK menyelesaikan masalah.** Crash masih
+terjadi di entry ~247/349 - masih di window yang SAMA (200-250) seperti
+SEBELUM fix 6p diterapkan. Signature crash di log Wine juga 100% identik
+(2× `ACCESS_VIOLATION` → `RaiseFailFastException`, cuma PID thread beda
+`0144` vs sebelumnya). **Teori realokasi array `ObservableCollection` di
+6p resmi GUGUR** - variabel dihilangkan (collection sekarang di-pre-size,
+tidak pernah resize), hasil tidak berubah sama sekali.
+
+**Pola yang mulai terlihat lintas SEMUA percobaan sejauh ini** (6e, 6f, 6g,
+6i, 6p - semua GUGUR/parsial): entah lewat teori yang benar atau salah,
+titik krisisnya SELALU melibatkan sesuatu yang **butuh koordinasi
+antar-thread** (spawn proses, `WaitForExit`, stack yang dipakai thread
+lain, dst) - box64+wow64 (2 lapis emulasi) tampaknya punya kelemahan
+sistemik di area sinkronisasi lintas-thread, BUKAN di 1 bug spesifik yang
+bisa dicari-cari selamanya di kode compile.
+
+**Teori baru & fix:** **Background/Concurrent GC** .NET jalan di **THREAD
+TERPISAH** yang terus-menerus suspend/resume thread aplikasi untuk
+melakukan collection - pola sinkronisasi lintas-thread yang PERSIS sama
+kelasnya dengan semua titik krisis sebelumnya. Proses compile mengalokasi
+BANYAK object kecil (349× `CharacterSelectParamModel` + string-string hasil
+`BinaryReader.b_ReadString`) - sangat mungkin memicu GC generation 0/1
+collection di suatu titik sekitar entry ~200-250 (jumlah alokasi
+kumulatif mencapai threshold Gen0 budget).
+
+**Fix di `NSC-ModManager.csproj`:**
+```xml
+<ConcurrentGarbageCollection>false</ConcurrentGarbageCollection>
+<ServerGarbageCollection>false</ServerGarbageCollection>
+```
+`ConcurrentGarbageCollection=false` memaksa GC jadi **blocking
+single-threaded** (Gen2 collection akan nge-freeze app sesaat, tapi TIDAK
+ADA thread GC terpisah yang perlu sinkronisasi dengan thread app - seluruh
+kelas masalah "GC thread vs app thread" hilang). `ServerGarbageCollection=false`
+eksplisit pastikan pakai Workstation GC (bukan Server GC yang malah pakai
+1 thread per CPU core - lebih banyak lagi koordinasi lintas-thread).
+
+**⚠️ Kalau masih crash setelah ini:** kalau signature & titik crash MASIH
+persis sama, teori GC-thread ini juga gugur - pertimbangkan pivot total:
+coba **profiling manual pakai `GC.GetTotalMemory()`** di tiap checkpoint
+(request tambahan dari review eksternal, bagian 3.4) untuk lihat apakah
+ada lonjakan memori aneh tepat sebelum crash, ATAU pertimbangkan opsi lebih
+drastis (kurangi jumlah entry yang diproses sekaligus dengan batching +
+`GC.Collect()` manual di titik aman antar-batch, alih-alih berharap GC
+otomatis "aman" di lingkungan ini).
+
 ## 7. Audit tambahan (belum tentu ada di crash log, ditemukan lewat code review)
 
 - **7× `CommonOpenFileDialog`** (folder picker gaya Vista, `Microsoft.WindowsAPICodePack.Dialogs`,
@@ -969,13 +1092,14 @@ titik baru itu dengan pola yang sama (checkpoint granular).
   prioritas rendah karena WPF Effect punya fallback software-rendering
   sendiri (harusnya tetap jalan meski mungkin lebih berat sedikit di bawah
   `RenderMode.SoftwareOnly` yang sudah kita paksa).
-- **`Menu`/`MenuItem`** (native chrome popup, `Microsoft.Windows.Themes.*`
-  serupa `DataGridHeaderBorder`/`ComboBoxChrome`) — dipakai di `TitleView.xaml`,
-  **BELUM di-restyle**. Kelas risiko sama dengan yang sudah diperbaiki di
-  bagian 6 baris #2. **Kalau crash log nanti nunjuk ke `Microsoft.Windows.Themes`
-  lain (`SystemDropShadowChrome`, `ClassicBorderDecorator`, dll), ini
-  kandidat pertama yang perlu di-restyle penuh** dengan pola yang sama
-  seperti `DataGridColumnHeader`/`ComboBox`/`ScrollBar`.
+- **`Menu`/`MenuItem`** — ✅ **SUDAH diperbaiki, lihat bagian 6d** (bukan lagi
+  risiko terbuka). Catatan ini awalnya ditulis SEBELUM `ClassicBorderDecorator`
+  ketahuan jadi biang crash NullReferenceException (bagian 6d) - begitu
+  ketahuan, `Menu`/`MenuItem` langsung diberi `ControlTemplate` penuh di
+  `WinlatorStyle.xaml` (pola sama seperti `DataGridColumnHeader`/`ComboBox`/
+  `ScrollBar`). Baris ini sengaja dibiarkan (bukan dihapus) sebagai jejak
+  histori kenapa fix itu dilakukan - kritik dari user soal audit ini
+  (2026-07-21) menemukan kontradiksinya, sudah direkonsiliasi.
 - **`kernel32` DllImport** (`LoadLibrary`/`FreeLibrary` di `App.xaml.cs`
   untuk `IsDllPresent`, dan di `Properties/Program.cs`) — aman, Wine
   implementasi `kernel32` lengkap, tidak perlu diubah.
