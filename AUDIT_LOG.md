@@ -861,6 +861,44 @@ keluar OpenFile" (artinya loop kedua yang belum selesai), fokus ke
 kandidat fix: batasi/cache pengecekan file, atau jalankan loop kedua di
 luar hot-path compile.
 
+## 6o. Animasi spinner loading DIHAPUS total (bukan cuma DropShadowEffect)
+
+Log terbaru (checkpoint di dalam `characterSelectParam.OpenFile()`, 6n)
+kasih data baru: crash sekarang antara entry 200-250 dari 349 (57% jalan!).
+Timing antar-checkpoint relatif KONSISTEN (~0.7-1 detik / 50 entry, tidak
+melambat drastis) - ini BUKAN pola "makin lambat makin berat" murni,
+lebih mirip **penumpukan resource** yang jebol di titik tertentu.
+
+User minta coba hilangkan animasi loading (Kyuruto sudah dikonfirmasi
+sebelumnya jalan di background, TIDAK berat - lihat 6l). Yang dimaksud:
+spinner `LoadingControl` yang jalan `RepeatBehavior="Forever"` SELAMA
+SELURUH proses compile (bisa puluhan detik) - 6l baru menghapus
+`DropShadowEffect`-nya, Storyboard rotate+scale+opacity-nya SENDIRI masih
+jalan terus. Karena pola crash sekarang terlihat seperti resource yang
+menumpuk (bukan bug deterministik di 1 titik pasti), animasi kontinu yang
+terus-menerus minta render pass sepanjang compile adalah kandidat masuk
+akal untuk kontributor beban tambahan di lingkungan yang serba terbatas.
+
+**Fix:** `Controls/LoadingControl.xaml` - Storyboard `Forever`-loop
+(rotate 720°→0°, scale bounce, opacity pulse) di KEDUA style
+(`MainLoadingAnimation` & `SecondLoadingAnimation`) **dihapus total**,
+diganti style kosong/statis - gambar spinner tetap tampil sebagai
+indikator loading (nunjukin proses masih jalan), tapi TIDAK lagi animasi
+terus-menerus. `LoadingGridAnimation1` (fade show/hide SEKALI jalan saat
+grid muncul/hilang, 0.2 detik, bukan `Forever`) TIDAK disentuh - ringan,
+tidak berkaitan dengan animasi kontinu yang dicurigai.
+
+**⚠️ Ini sengaja digabung dengan checkpoint yang SUDAH ADA dari 6n (belum
+ditambah checkpoint baru lagi)** - kalau setelah fix ini crash masih
+terjadi PERSIS di rentang entry 200-250 yang sama, itu bukti kuat animasi
+BUKAN penyebabnya (variabel dihilangkan, hasil tidak berubah) - fokus
+balik ke data/logika di `CharacterSelectParamViewModel.OpenFile()` sendiri
+sekitar entry situ. Kalau crash-nya MUNDUR (makin jauh dari entry 200,
+mis. sampai entry 300+ atau malah lolos semua) - itu konfirmasi animasi
+memang berkontribusi signifikan ke beban resource, dan strategi "hilangkan
+elemen visual berat" ini valid untuk diterapkan ke tempat lain juga kalau
+masih ada crash serupa nanti.
+
 ## 7. Audit tambahan (belum tentu ada di crash log, ditemukan lewat code review)
 
 - **7× `CommonOpenFileDialog`** (folder picker gaya Vista, `Microsoft.WindowsAPICodePack.Dialogs`,

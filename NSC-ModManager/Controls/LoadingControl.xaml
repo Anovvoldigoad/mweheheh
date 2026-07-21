@@ -8,150 +8,15 @@
              mc:Ignorable="d" 
              MinHeight="70" MaxHeight="70" MinWidth="70" MaxWidth="70">
     <UserControl.Resources>
-        <DropShadowEffect x:Key="MyEffect" ShadowDepth="0" Color="White" Opacity="1" BlurRadius="30"/>
+        <!-- Storyboard rotate+scale+opacity "Forever" untuk kedua spinner DIHAPUS.
+             Alasan: ini animasi WPF yang jalan TERUS-MENERUS sepanjang proses compile
+             (bisa puluhan detik), nambah beban render kontinu di lingkungan Winlator/
+             WinNative yang sudah serba terbatas resource-nya. Diganti style statis -
+             gambar tetap tampil sebagai indikator loading, cuma tidak lagi animasi. -->
         <Style x:Key="MainLoadingAnimation" TargetType="Image">
-            <Setter Property="Image.RenderTransform">
-                <Setter.Value>
-                    <TransformGroup>
-                        <RotateTransform/>
-                        <ScaleTransform/>
-                    </TransformGroup>
-                </Setter.Value>
-            </Setter>
-            <Style.Triggers>
-                <Trigger Property="IsEnabled" Value="True">
-                    <Trigger.EnterActions>
-                        <BeginStoryboard>
-                            <Storyboard>
-                                <DoubleAnimationUsingKeyFrames
-                                            Storyboard.TargetProperty="(Image.RenderTransform).Children[0].Angle"
-                                            Duration="0:0:2"
-                                            AccelerationRatio="0.8" 
-                                            DecelerationRatio="0.2"
-                                            RepeatBehavior="Forever" 
-                                            AutoReverse="False">
-                                    <LinearDoubleKeyFrame KeyTime="0%" Value="720"/>
-                                    <LinearDoubleKeyFrame KeyTime="90%" Value="100"/>
-                                    <LinearDoubleKeyFrame KeyTime="100%" Value="0"/>
-                                </DoubleAnimationUsingKeyFrames>
-                                <DoubleAnimationUsingKeyFrames
-                                            Storyboard.TargetProperty="(Image.RenderTransform).Children[1].ScaleX"
-                                            Duration="0:0:2"
-                                            RepeatBehavior="Forever" 
-                                            AutoReverse="True">
-                                    <LinearDoubleKeyFrame KeyTime="0%" Value="1"/>
-                                    <LinearDoubleKeyFrame KeyTime="20%" Value="1"/>
-                                    <LinearDoubleKeyFrame KeyTime="30%" Value="0.9"/>
-                                    <LinearDoubleKeyFrame KeyTime="50%" Value="0.1"/>
-                                    <LinearDoubleKeyFrame KeyTime="70%" Value="0.6"/>
-                                    <LinearDoubleKeyFrame KeyTime="80%" Value="1"/>
-                                    <LinearDoubleKeyFrame KeyTime="0%" Value="1"/>
-                                </DoubleAnimationUsingKeyFrames>
-                                <DoubleAnimationUsingKeyFrames
-                                            Storyboard.TargetProperty="(Image.RenderTransform).Children[1].ScaleY"
-                                            Duration="0:0:2"
-                                            RepeatBehavior="Forever" 
-                                            AutoReverse="True">
-                                    <LinearDoubleKeyFrame KeyTime="0%" Value="1"/>
-                                    <LinearDoubleKeyFrame KeyTime="20%" Value="1"/>
-                                    <LinearDoubleKeyFrame KeyTime="30%" Value="0.9"/>
-                                    <LinearDoubleKeyFrame KeyTime="50%" Value="0.1"/>
-                                    <LinearDoubleKeyFrame KeyTime="70%" Value="0.6"/>
-                                    <LinearDoubleKeyFrame KeyTime="80%" Value="1"/>
-                                    <LinearDoubleKeyFrame KeyTime="0%" Value="1"/>
-                                </DoubleAnimationUsingKeyFrames>
-                                <DoubleAnimationUsingKeyFrames
-                                            Storyboard.TargetProperty="Opacity"
-                                            Duration="0:0:2"
-                                            RepeatBehavior="Forever" 
-                                            AutoReverse="True">
-                                    <LinearDoubleKeyFrame KeyTime="0%" Value="1"/>
-                                    <LinearDoubleKeyFrame KeyTime="35%" Value="1"/>
-                                    <LinearDoubleKeyFrame KeyTime="40%" Value="0.5"/>
-                                    <LinearDoubleKeyFrame KeyTime="50%" Value="0"/>
-                                    <LinearDoubleKeyFrame KeyTime="60%" Value="0.5"/>
-                                    <LinearDoubleKeyFrame KeyTime="65%" Value="1"/>
-                                    <LinearDoubleKeyFrame KeyTime="0%" Value="1"/>
-                                </DoubleAnimationUsingKeyFrames>
-                            </Storyboard>
-                        </BeginStoryboard>
-                    </Trigger.EnterActions>
-                </Trigger>
-            </Style.Triggers>
         </Style>
-        
-        <Style x:Key="SecondLoadingAnimation" TargetType="Image">
-            <Setter Property="Image.RenderTransform">
-                <Setter.Value>
-                    <TransformGroup>
-                        <RotateTransform/>
-                        <ScaleTransform/>
-                    </TransformGroup>
-                </Setter.Value>
-            </Setter>
-            <Style.Triggers>
-                <Trigger Property="IsEnabled" Value="True">
-                    <Trigger.EnterActions>
-                        <BeginStoryboard>
-                            <Storyboard>
-                                <DoubleAnimationUsingKeyFrames
-                                        Storyboard.TargetProperty="(Image.RenderTransform).Children[0].Angle"
-                                        Duration="0:0:2"
-                                        AccelerationRatio="0.8" 
-                                        DecelerationRatio="0.2"
-                                        RepeatBehavior="Forever" 
-                                        AutoReverse="False">
-                                    <LinearDoubleKeyFrame KeyTime="0%" Value="720"/>
-                                    <LinearDoubleKeyFrame KeyTime="90%" Value="100"/>
-                                    <LinearDoubleKeyFrame KeyTime="100%" Value="0"/>
-                                </DoubleAnimationUsingKeyFrames>
-                                <DoubleAnimationUsingKeyFrames
-                                        Storyboard.TargetProperty="(Image.RenderTransform).Children[1].ScaleX"
-                                        Duration="0:0:2"
-                                        RepeatBehavior="Forever" 
-                                        AutoReverse="True">
-                                    <LinearDoubleKeyFrame KeyTime="0%" Value="1"/>
-                                    <LinearDoubleKeyFrame KeyTime="20%" Value="1"/>
-                                    <LinearDoubleKeyFrame KeyTime="30%" Value="0.3"/>
-                                    <LinearDoubleKeyFrame KeyTime="50%" Value="0.1"/>
-                                    <LinearDoubleKeyFrame KeyTime="70%" Value="0.3"/>
-                                    <LinearDoubleKeyFrame KeyTime="80%" Value="1"/>
-                                    <LinearDoubleKeyFrame KeyTime="0%" Value="1"/>
-                                </DoubleAnimationUsingKeyFrames>
-                                <DoubleAnimationUsingKeyFrames
-                                        Storyboard.TargetProperty="(Image.RenderTransform).Children[1].ScaleY"
-                                        Duration="0:0:2"
-                                        RepeatBehavior="Forever" 
-                                        AutoReverse="True">
-                                    <LinearDoubleKeyFrame KeyTime="0%" Value="1"/>
-                                    <LinearDoubleKeyFrame KeyTime="20%" Value="1"/>
-                                    <LinearDoubleKeyFrame KeyTime="30%" Value="0.3"/>
-                                    <LinearDoubleKeyFrame KeyTime="50%" Value="0.1"/>
-                                    <LinearDoubleKeyFrame KeyTime="70%" Value="0.3"/>
-                                    <LinearDoubleKeyFrame KeyTime="80%" Value="1"/>
-                                    <LinearDoubleKeyFrame KeyTime="0%" Value="1"/>
-                                </DoubleAnimationUsingKeyFrames>
-                                <DoubleAnimationUsingKeyFrames
-                                        Storyboard.TargetProperty="Opacity"
-                                        Duration="0:0:2"
-                                        RepeatBehavior="Forever" 
-                                        AutoReverse="True">
-                                    <LinearDoubleKeyFrame KeyTime="0%" Value="0"/>
-                                    <LinearDoubleKeyFrame KeyTime="35%" Value="0"/>
-                                    <LinearDoubleKeyFrame KeyTime="40%" Value="0.2"/>
-                                    <LinearDoubleKeyFrame KeyTime="45%" Value="1"/>
-                                    <LinearDoubleKeyFrame KeyTime="50%" Value="1"/>
-                                    <LinearDoubleKeyFrame KeyTime="65%" Value="1"/>
-                                    <LinearDoubleKeyFrame KeyTime="70%" Value="0.2"/>
-                                    <LinearDoubleKeyFrame KeyTime="75%" Value="0"/>
-                                    <LinearDoubleKeyFrame KeyTime="0%" Value="0"/>
-                                </DoubleAnimationUsingKeyFrames>
-                            </Storyboard>
-                        </BeginStoryboard>
-                    </Trigger.EnterActions>
-                </Trigger>
 
-            </Style.Triggers>
+        <Style x:Key="SecondLoadingAnimation" TargetType="Image">
         </Style>
         <Style x:Name="LoadingGridAnimation1" TargetType="Grid">
             <Style.Triggers>
