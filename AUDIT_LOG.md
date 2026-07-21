@@ -899,6 +899,59 @@ memang berkontribusi signifikan ke beban resource, dan strategi "hilangkan
 elemen visual berat" ini valid untuk diterapkan ke tempat lain juga kalau
 masih ada crash serupa nanti.
 
+## 6p. Animasi TERBUKTI bukan penyebab + fix ObservableCollection realokasi
+
+Test dengan animasi dihapus (6o) memberi hasil: crash TETAP di entry
+200-250, timing HAMPIR IDENTIK ke run-run sebelumnya (sebelum animasi
+dihapus). **Kesimpulan definitif: animasi loading BUKAN penyebab crash** -
+variabel dihilangkan, hasil sama sekali tidak berubah. Signature crash di
+log Wine juga identik (`wow64cpu.dll`→`wow64.dll`→AV tanpa nama modul→
+`RaiseFailFastException`).
+
+**Observasi penting:** crash SELALU di rentang entry yang SAMA (200-250)
+di SETIAP run, dengan timing yang SANGAT konsisten antar-run. Ini pola
+"deterministik berdasarkan COUNT", bukan "random tergantung resource saat
+itu" - mengarah ke sesuatu yang terjadi persis di angka tertentu, bukan ke
+data spesifik 1 entry, ATAU ke akumulasi resource yang kebetulan konsisten
+timing-nya.
+
+**Teori baru & fix:** `CharacterSelectParamList.Add(CSP_entry)` dipanggil
+349× beruntun ke sebuah `ObservableCollection<T>`. Internal array `List<T>`
+di balik `ObservableCollection` **dobling kapasitas** tiap penuh
+(...128→256→512...) - realokasi dari 256→512 (butuh alokasi array baru +
+copy 256 elemen lama) terjadi PERSIS saat menambah entry ke-257 (index
+256) - **match dengan rentang crash 200-250 yang konsisten muncul**. Setiap
+`.Add()` juga men-trigger 1 event `CollectionChanged` terpisah (349× total).
+
+**Fix:** loop parsing di-refactor - dulu `.Add()` LANGSUNG ke
+`CharacterSelectParamList` (ObservableCollection) 349× beruntun, SEKARANG
+dikumpulkan dulu ke `List<CharacterSelectParamModel>` biasa yang
+**di-pre-size** (`new List<T>(entryCount)` - kapasitas persis pas dari
+awal, TIDAK PERNAH resize), baru di akhir loop di-assign SEKALI ke
+`CharacterSelectParamList = new ObservableCollection<T>(tempEntries)`.
+Ini AMAN dilakukan karena instance `characterSelectParam_vanilla` di alur
+compile ini LOKAL (baru dibuat tiap compile, `new CharacterSelectParamViewModel()`),
+TIDAK di-bind ke View manapun (bukan instance yang dipakai
+`CharacterRosterEditorView` di UI) - jadi mengganti reference collection-nya
+tidak berisiko merusak binding UI manapun.
+
+**Checkpoint diperdalam lagi:** sekarang log CSP_code (identitas karakter)
+di **SETIAP SATU entry** (349× granularitas maksimal, bukan cuma tiap
+10/50), plus checkpoint baru sebelum & sesudah assign ke
+`ObservableCollection`. Kalau fix realokasi ini BENAR, log seharusnya
+sekarang lolos SEMUA 349 entry dan sampai ke
+`"selesai assign ObservableCollection"`.
+
+**⚠️ Kalau masih crash setelah ini:** kalau log MASIH berhenti di entry
+~200-256 dengan pola sama, berarti teori realokasi array SALAH juga -
+balik ke curiga "sesuatu yang genuinely count-based tapi bukan dari
+ObservableCollection kita" (mis. GC generation 2 promotion threshold, atau
+limit internal lain dari .NET runtime/Wine yang tidak terkait langsung
+dengan kode kita). Kalau log lolos SEMUA 349 entry tapi crash pindah ke
+tempat lain (loop kedua base-costume lookup, atau param file BERIKUTNYA
+setelah characterSelectParam) - itu progress nyata, lanjut investigasi di
+titik baru itu dengan pola yang sama (checkpoint granular).
+
 ## 7. Audit tambahan (belum tentu ada di crash log, ditemukan lewat code review)
 
 - **7× `CommonOpenFileDialog`** (folder picker gaya Vista, `Microsoft.WindowsAPICodePack.Dialogs`,

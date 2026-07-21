@@ -734,12 +734,21 @@ namespace NSC_ModManager.ViewModel {
                 if (BinName.Contains("characterSelectParam")) {
                     int entryCount = BinaryReader.b_ReadInt(FileBytes, StartOfFile + 4);
                     TitleViewModel.CompileCheckpoint($"characterSelectParam: entryCount = {entryCount}");
+                    // PENTING: build ke List<T> biasa dulu (pre-sized capacity), BUKAN
+                    // langsung .Add() ke CharacterSelectParamList (ObservableCollection)
+                    // 349x beruntun. Alasan: tiap .Add() ke ObservableCollection men-trigger
+                    // 1 event CollectionChanged + internal array List<T> di baliknya bisa
+                    // realokasi (dobling kapasitas 128->256->512) - realokasi 256->512 itu
+                    // PERSIS jatuh di sekitar entry 250-256, match dengan rentang crash yang
+                    // konsisten muncul di log (entry 200-250) di beberapa kali percobaan.
+                    // Instance ini AMAN direfactor begini karena lokal untuk proses compile,
+                    // tidak di-bind ke View manapun (bukan yang dipakai CharacterRosterEditor).
+                    var tempEntries = new List<CharacterSelectParamModel>(entryCount);
                     for (int c = 0; c < entryCount; c++) {
-                        if (c % 50 == 0)
-                            TitleViewModel.CompileCheckpoint($"characterSelectParam: entry {c}/{entryCount}");
                         int ptr = StartOfFile + 0x10 + (c * 0x140);
                         CharacterSelectParamModel CSP_entry = new CharacterSelectParamModel();
                         CSP_entry.CSP_code = BinaryReader.b_ReadString(FileBytes, ptr + BinaryReader.b_ReadInt(FileBytes, ptr));
+                        TitleViewModel.CompileCheckpoint($"characterSelectParam: entry {c} CSP_code = {CSP_entry.CSP_code}");
                         CSP_entry.PageIndex = BinaryReader.b_ReadInt(FileBytes, ptr + 0x08);
                         CSP_entry.SlotIndex = BinaryReader.b_ReadInt(FileBytes, ptr + 0x0C);
                         CSP_entry.CostumeIndex = BinaryReader.b_ReadInt(FileBytes, ptr + 0x10);
@@ -811,8 +820,11 @@ namespace NSC_ModManager.ViewModel {
                         CSP_entry.CharselValues = RosterEntry;
                         CSP_entry.DictionaryCode = BinaryReader.b_ReadString(FileBytes, ptr + 0x130 + BinaryReader.b_ReadInt(FileBytes, ptr + 0x130));
                         CSP_entry.DictionaryIndex = BinaryReader.b_ReadInt(FileBytes, ptr + 0x138);
-                        CharacterSelectParamList.Add(CSP_entry);
+                        tempEntries.Add(CSP_entry);
                     }
+                    TitleViewModel.CompileCheckpoint($"characterSelectParam: selesai loop baca {entryCount} entry, assign ke ObservableCollection");
+                    CharacterSelectParamList = new ObservableCollection<CharacterSelectParamModel>(tempEntries);
+                    TitleViewModel.CompileCheckpoint("characterSelectParam: selesai assign ObservableCollection");
 
 
                     TitleViewModel.CompileCheckpoint($"characterSelectParam: mulai loop base-costume lookup ({CharacterSelectParamList.Count} entries)");
