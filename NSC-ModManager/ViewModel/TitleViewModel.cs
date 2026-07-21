@@ -1699,7 +1699,7 @@ namespace NSC_ModManager.ViewModel
         /// (lihat compile_progress.log di folder app), bukan nebak dari trace
         /// native yang buta soal kode kita.
         /// </summary>
-        private static void CompileCheckpoint(string step)
+        public static void CompileCheckpoint(string step)
         {
             try
             {

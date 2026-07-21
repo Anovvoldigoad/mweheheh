@@ -803,6 +803,64 @@ berdasarkan spesifikasi format XFBIN (butuh riset format-nya), atau
 (c) skip/lewati param file spesifik yang bermasalah kalau ternyata cuma 1-2
 file tertentu yang trigger (bukan semua .xfbin).
 
+## 6n. Titik crash ditemukan: `CharacterSelectParamViewModel.OpenFile()`
+
+`compile_progress.log` terbaru (dengan checkpoint per-`OpenFile` dari 6m)
+kasih jawaban jelas: berhenti tepat setelah
+`"selesai OpenFile - privateCamera_vanilla"`, TIDAK ada
+`"selesai OpenFile - characterSelectParam_vanilla"`. Konfirmasi dari log
+Wine: crash terjadi ~3.7 detik setelah checkpoint terakhir.
+
+**Analisis `CharacterSelectParamViewModel.OpenFile()`:**
+- **BUKAN** pakai `XFBIN_LIB.dll` (dugaan di 6m salah/tidak berlaku di sini)
+  - method ini pakai `BinaryReader.cs` MURNI milik kita sendiri
+  (`b_ReadString`/`b_ReadInt`/`b_ReadFloat` dll).
+- Semua fungsi baca di `BinaryReader.cs` sudah **bounds-checked dengan
+  benar** (`EnsureRange()` sebelum tiap baca, pakai `BinaryPrimitives`/
+  `Span<byte>` yang aman, TIDAK ada `unsafe`/pointer mentah) - kalau ada
+  baca di luar batas array, harusnya lempar `ArgumentOutOfRangeException`
+  yang bisa ketangkep try-catch biasa, BUKAN native access violation.
+  Jadi kemungkinan besar bukan di level baca-byte paling dasar.
+- `CharacterSelectParamList` adalah `ObservableCollection<T>` - SEMPAT
+  dicurigai soal cross-thread UI update (karena sekarang jalan di thread
+  besar 64MB dari fix 6i), tapi karena instance-nya baru
+  (`new CharacterSelectParamViewModel()`, lokal ke proses compile, bukan
+  yang di-bind ke `CharacterRosterEditorView`), kemungkinan tidak ada yang
+  "nonton" `CollectionChanged`-nya - dugaan ini LEMAH, belum terbukti.
+- **Yang paling mencolok:** file ini jauh lebih BESAR dari file-file
+  `_vanilla` lain yang berhasil dibuka sebelumnya - `entryCount` bisa
+  ratusan (data roster SEMUA karakter × costume), tiap entry baca ~50
+  field. Ada JUGA loop kedua O(n²) (`foreach` + `FirstOrDefault` di dalam)
+  buat cari base-costume icon, plus `File.Exists()` dipanggil bisa
+  ratusan kali beruntun (I/O syscall lewat box64+wow64 translation -
+  freqency tinggi I/O adalah kandidat masuk akal untuk area rapuh Wine).
+
+**Fix (checkpoint lebih dalam, BELUM fix definitif):** ditambah checkpoint
+DI DALAM `CharacterSelectParamViewModel.OpenFile()` sendiri (bukan cuma di
+`TitleViewModel.cs` lagi) - method `CompileCheckpoint` diubah dari
+`private static` jadi `public static` (di `TitleViewModel.cs`) supaya bisa
+dipanggil lintas file. Checkpoint baru:
+- Log `entryCount` begitu diketahui (curiga #1: entryCount GARBAGE/absurd
+  besar karena offset salah baca - kalau log nunjuk entryCount yang aneh,
+  itu langsung ketahuan)
+- Progress tiap 50 entry di loop utama (curiga #2: satu entry SPESIFIK yang
+  datanya aneh/corrupt bikin crash - kalau log berhenti di entry tertentu
+  yang bukan kelipatan rapi, sempit ke sekitar situ)
+- Checkpoint sebelum & sesudah loop kedua (curiga #3: loop O(n²) atau
+  `File.Exists()` beruntun yang jadi masalah, bukan loop pertama)
+
+**⚠️ Kalau masih crash setelah ini:** baris terakhir `compile_progress.log`
+akan langsung nunjuk salah satu dari 3 skenario di atas. Kalau berhenti
+tepat di `"entryCount = <angka gila/negatif>"`, berarti bug di
+PEMBACAAN OFFSET file (`StartOfFile` salah hitung, mungkin gara-gara
+mod/file yang dipasang user berbeda struktur dari yang diharapkan). Kalau
+berhenti di `"entry N/M"` untuk N tertentu (bukan pola acak), fokus ke
+data entry itu spesifik. Kalau berhenti tepat SEBELUM "selesai semua,
+keluar OpenFile" (artinya loop kedua yang belum selesai), fokus ke
+`File.Exists()`/`FirstOrDefault()` yang dipanggil ratusan kali beruntun -
+kandidat fix: batasi/cache pengecekan file, atau jalankan loop kedua di
+luar hot-path compile.
+
 ## 7. Audit tambahan (belum tentu ada di crash log, ditemukan lewat code review)
 
 - **7× `CommonOpenFileDialog`** (folder picker gaya Vista, `Microsoft.WindowsAPICodePack.Dialogs`,

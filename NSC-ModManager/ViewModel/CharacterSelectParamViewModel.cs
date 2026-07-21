@@ -733,7 +733,10 @@ namespace NSC_ModManager.ViewModel {
 
                 if (BinName.Contains("characterSelectParam")) {
                     int entryCount = BinaryReader.b_ReadInt(FileBytes, StartOfFile + 4);
+                    TitleViewModel.CompileCheckpoint($"characterSelectParam: entryCount = {entryCount}");
                     for (int c = 0; c < entryCount; c++) {
+                        if (c % 50 == 0)
+                            TitleViewModel.CompileCheckpoint($"characterSelectParam: entry {c}/{entryCount}");
                         int ptr = StartOfFile + 0x10 + (c * 0x140);
                         CharacterSelectParamModel CSP_entry = new CharacterSelectParamModel();
                         CSP_entry.CSP_code = BinaryReader.b_ReadString(FileBytes, ptr + BinaryReader.b_ReadInt(FileBytes, ptr));
@@ -812,6 +815,7 @@ namespace NSC_ModManager.ViewModel {
                     }
 
 
+                    TitleViewModel.CompileCheckpoint($"characterSelectParam: mulai loop base-costume lookup ({CharacterSelectParamList.Count} entries)");
                     foreach (var entry in CharacterSelectParamList)
                     {
                         if (entry.CostumeIndex != 0)
@@ -831,6 +835,7 @@ namespace NSC_ModManager.ViewModel {
                             }
                         }
                     }
+                    TitleViewModel.CompileCheckpoint("characterSelectParam: selesai semua, keluar OpenFile");
                 } else {
                     System.Windows.MessageBox.Show("You can't open that file with that tool. ");
                     return;
