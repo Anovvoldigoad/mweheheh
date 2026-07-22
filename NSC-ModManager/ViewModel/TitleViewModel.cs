@@ -4318,17 +4318,20 @@ namespace NSC_ModManager.ViewModel
                         nuccMaterialFile = BinaryReader.b_ReplaceBytes(nuccMaterialFile, BitConverter.GetBytes(nuccMaterialFile.Length), 0x04, 0); //Replacing size bytes of nuccMaterial_dx11 file
 
                 CompileCheckpoint("NSC: progress line~4272");
+                        CompileCheckpoint("NSC: sebelum GetFiles *.cpk (mod_d=" + mod_d.FullName + ")");
                         FileInfo[] cpkList = mod_d.GetFiles("*.cpk", SearchOption.AllDirectories);
+                        CompileCheckpoint($"NSC: selesai GetFiles, ditemukan {cpkList.Length} cpk");
 
                         Array.Sort(cpkList, (x, y) =>
                             StringComparer.OrdinalIgnoreCase.Compare(
                             Path.GetFileName(x.DirectoryName),
                             Path.GetFileName(y.DirectoryName)));
+                        CompileCheckpoint("NSC: selesai Array.Sort cpkList");
                         foreach (FileInfo cpk in cpkList)
                         {
 
 
-                            CompileCheckpoint("NSC: mulai extract CPK");
+                            CompileCheckpoint("NSC: mulai extract CPK - " + cpk.FullName);
                             RepackHelper.RunExtractProcess(Path.GetFullPath(cpk.FullName));
                             CompileCheckpoint("NSC: selesai extract CPK");
                             string fileName = Path.GetFileNameWithoutExtension(cpk.FullName);

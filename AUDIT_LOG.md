@@ -19,15 +19,13 @@ https://github.com/WinNative-Emu/WinNative
 
 ## STATUS TERKINI (update tiap sesi - baca ini dulu sebelum apa-apa)
 
-**Per 2026-07-21 (update kedua hari ini):** app SUDAH bisa jalan & dipakai
-untuk fitur non-compile (install mod manual, dsb). Blocker utama yang
-TERSISA: **"Compile & Launch" NSC masih crash** di tengah parsing
-`characterSelectParam` (file roster karakter terbesar, 349 entry), SELALU
-di rentang entry ~200-250. Sudah 5 teori dicoba (6e-style thinking berulang
-ke 6i, lalu 6p) dan **6p (realokasi ObservableCollection) baru saja
-DIKONFIRMASI GAGAL** - fix diterapkan, hasil tidak berubah sama sekali.
-Teori TERBARU (6q - Background GC lintas-thread) **sedang menunggu
-verifikasi** dari `compile_progress.log` berikutnya.
+**Per 2026-07-22:** 🎉 **PROGRESS BESAR** - fix `ConcurrentGarbageCollection=false`
+(6q) BERHASIL menyelesaikan crash `characterSelectParam` yang sudah
+berminggu-minggu jadi blocker (SELALU crash di entry ~200-250/349). Compile
+sekarang lolos jauh lebih jauh. **Crash BARU muncul di titik lain**
+(`DirectoryInfo.GetFiles` rekursif, cari file `.cpk` di folder mod) -
+lihat 6r. Checkpoint presisi sudah dipasang, **menunggu verifikasi
+`compile_progress.log` berikutnya.**
 
 **Fitur lain (compile NS4, install mod manual, dll) statusnya BELUM
 tentu aman** - sejauh ini fokus debugging 100% di jalur compile NSC karena
@@ -50,7 +48,8 @@ tapi belum pernah benar-benar diuji.
 | 6j-6n | Checkpoint logging bertahap | - | ✅ Tuntas (alat diagnosis, bukan fix) |
 | 6o | Dugaan animasi jadi kontributor | Hapus Storyboard Forever-loop | ❌ Terbukti salah teori |
 | 6p | Dugaan realokasi ObservableCollection | Refactor ke `List<T>` pre-sized | ❌ Terbukti salah teori |
-| 6q | Dugaan Background GC lintas-thread | `ConcurrentGarbageCollection=false` + `ServerGarbageCollection=false` | ⏳ **Menunggu verifikasi user - INI YANG DITUNGGU SEKARANG** |
+| 6q | Dugaan Background GC lintas-thread | `ConcurrentGarbageCollection=false` + `ServerGarbageCollection=false` | ✅ **BERHASIL** - crash characterSelectParam tuntas! |
+| 6r | Crash BARU: `GetFiles` rekursif cari `.cpk` di folder mod | Checkpoint presisi (sebelum/sesudah GetFiles/Sort/tiap file) | ⏳ **Menunggu verifikasi user - INI YANG DITUNGGU SEKARANG** |
 
 **Legend:** ✅ Tuntas & terverifikasi lewat log | 🟡 Mitigasi (gejala teratasi, akar belum tentu) | ⏳ Menunggu verifikasi | ❌ Terbukti bukan penyebab
 
@@ -1074,6 +1073,57 @@ ada lonjakan memori aneh tepat sebelum crash, ATAU pertimbangkan opsi lebih
 drastis (kurangi jumlah entry yang diproses sekaligus dengan batching +
 `GC.Collect()` manual di titik aman antar-batch, alih-alih berharap GC
 otomatis "aman" di lingkungan ini).
+
+## 6r. PROGRESS BESAR: fix GC (6q) berhasil, crash pindah ke titik baru (GetFiles rekursif)
+
+`compile_progress.log` terbaru (393 baris, JAUH lebih panjang dari
+sebelumnya yang cuma puluhan baris) kasih kabar bagus: **proses compile
+sekarang berhasil melewati SELURUH parsing `characterSelectParam`** (349
+entry, yang sebelumnya SELALU crash di entry ~200-250) - lanjut ke banyak
+`OpenFile` lain (`damageeff`, `stageInfo`, `conditionprm`, dll, semuanya
+lolos) sampai ke `"progress line~4272"` (dekat ujung blok pertama, dekat
+"mulai extract CPK"). **Kesimpulan: fix `ConcurrentGarbageCollection=false`
++ `ServerGarbageCollection=false` di 6q BERHASIL untuk masalah
+characterSelectParam.** Ini progress paling signifikan sejak mulai
+investigasi crash compile.
+
+**Crash BARU (titik berbeda):** sekarang gagal di celah sempit (~11 baris)
+antara `"progress line~4272"` dan `"mulai extract CPK"` - isinya:
+`mod_d.GetFiles("*.cpk", SearchOption.AllDirectories)` (scan folder mod
+REKURSIF cari semua file `.cpk`), lalu `Array.Sort()`, lalu masuk
+`foreach`. Signature crash identik seperti biasa (2× `ACCESS_VIOLATION` →
+`RaiseFailFastException`), ~6 detik setelah checkpoint terakhir - waktu
+yang masuk akal untuk scan direktori rekursif yang lumayan besar (folder
+mod hasil extract bisa berisi ribuan file/subfolder).
+
+**Kenapa ini kandidat masuk akal:** `DirectoryInfo.GetFiles(pattern,
+AllDirectories)` adalah panggilan **native Win32 API** (`FindFirstFile`/
+`FindNextFile` berulang lewat seluruh pohon direktori) - lewat batas
+emulasi Wine untuk SETIAP file/folder yang di-enumerate, mirip pola
+"native syscall boundary" yang beberapa kali sudah terbukti jadi sumber
+crash sebelumnya (spawn proses, dll) - bedanya kali ini kemungkinan
+BANYAK sekali panggilan native beruntun (1 per file/folder), bukan cuma
+1 panggilan seperti spawn proses.
+
+**Fix (checkpoint lebih presisi, BELUM fix definitif):** disisipkan
+checkpoint SEBELUM `GetFiles`, SESUDAH `GetFiles` (dengan jumlah file yang
+ketemu), SESUDAH `Array.Sort`, dan di SETIAP iterasi `foreach` (dengan
+nama file cpk-nya). Kalau nanti crash lagi, log akan langsung nunjuk:
+- Berhenti SEBELUM "selesai GetFiles" → crash di dalam `GetFiles` itu
+  sendiri (scan direktori native) - kandidat fix: ganti ke
+  `Directory.EnumerateFiles` (lazy/streaming) alih-alih `GetFiles` (eager,
+  build array penuh dulu), atau batasi rekursi manual per-subfolder.
+- Berhenti PAS SETELAH "selesai GetFiles, ditemukan N cpk" tapi SEBELUM
+  "selesai Array.Sort" → masalahnya di sorting (kemungkinan kecil kalau N
+  tidak ekstrem besar).
+- Berhenti di tengah `foreach` (nunjuk nama file cpk tertentu) → sama pola
+  seperti `RunExtractProcess` yang sudah kita perbaiki lewat `ProcessLauncher`
+  (6g) - kemungkinan `RunExtractProcess`/`RunRepackProcess` masih ada
+  masalah TERSISA untuk cpk SPESIFIK tertentu (bukan masalah umum, karena
+  4 pemanggilan `RunRepackProcess` lain sudah lolos di percobaan-percobaan
+  sebelumnya... tunggu, itu belum tentu benar tercapai juga - perlu dicek
+  lagi apakah cpk pertama dari `mod_d.GetFiles` ini sama sekali beda dari
+  4 repack "resources_modmanager.cpk" dkk yang sudah point sebelumnya).
 
 ## 7. Audit tambahan (belum tentu ada di crash log, ditemukan lewat code review)
 
